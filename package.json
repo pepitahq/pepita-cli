@@ -1,7 +1,7 @@
 {
   "name": "@pepitahq/cli",
-  "version": "0.2.0",
-  "description": "Command-line for pepita sites — pull, apply, save, publish.",
+  "version": "0.3.0",
+  "description": "Command-line for pepita sites — create, pull, apply, save, publish, delete.",
   "license": "MIT",
   "author": "Zoltan Gobolos <zgobolos@barelynotable.com>",
   "type": "module",
