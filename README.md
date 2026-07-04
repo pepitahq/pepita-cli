@@ -32,8 +32,8 @@ pepita publish my-site                # publish draft → live
 
 | `--state` | what you get | URL |
 |-----------|--------------|-----|
-| `live` (default) | the published site | `my-site.pepita.dev` |
-| `draft` | the saved staging site (excludes unsaved edits) | `my-site--draft.pepita.dev` |
+| `live` (default) | the published site | `my-site.pepita.page` |
+| `draft` | the saved staging site (excludes unsaved edits) | `my-site--draft.pepita.page` |
 | `unsaved` | your current working copy, including un-saved edits | — |
 
 `live`/`draft` are complete checkouts (same as the editor's "Download .zip");

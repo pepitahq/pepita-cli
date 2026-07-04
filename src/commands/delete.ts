@@ -23,13 +23,14 @@ function backupDir(slug: string, base?: string): string {
 }
 
 export async function run(args: string[]): Promise<void> {
-  const slug = args.find((a) => !a.startsWith('--'));
+  const dirIdx = args.indexOf('--dir');
+  const dirValIdx = dirIdx === -1 ? -1 : dirIdx + 1;
+  const slug = args.find((a, i) => !a.startsWith('--') && i !== dirValIdx);
   if (!slug) {
     throw new UsageError('usage: pepita delete <slug> [--download-snapshot] [--dir <path>] [--yes]');
   }
   const yes = args.includes('--yes');
   const snapshot = args.includes('--download-snapshot');
-  const dirIdx = args.indexOf('--dir');
   const dirOverride = dirIdx !== -1 ? args[dirIdx + 1] : undefined;
 
   // Verify the site exists BEFORE the destructive confirm. `create` appends a
