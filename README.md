@@ -15,6 +15,31 @@ npm i -g @pepitahq/cli    # then: pepita <command>
 npx @pepitahq/cli <command>
 ```
 
+### Standalone binary (no Node)
+
+Prefer not to install Node at all? Grab a single self-contained binary from the
+[latest release](https://github.com/pepitahq/pepita-cli/releases/latest) — no
+Node, no npm, nothing installed:
+
+```bash
+# macOS (Apple Silicon) — swap in your platform's asset name (see below)
+curl -fsSL https://github.com/pepitahq/pepita-cli/releases/latest/download/pepita-macos-arm64 -o pepita
+chmod +x pepita
+./pepita login
+```
+
+Asset names: `pepita-macos-arm64`, `pepita-macos-x64`, `pepita-linux-x64`,
+`pepita-linux-arm64`, `pepita-windows-x64.exe`. The `…/releases/latest/download/…`
+URL always resolves to the newest release.
+
+Or install it onto your `PATH` in one line (macOS/Linux):
+
+```bash
+curl -fsSL https://github.com/pepitahq/pepita-cli/releases/latest/download/install.sh | sh
+```
+
+(Override the target dir with `PEPITA_INSTALL_DIR`; default `~/.local/bin`.)
+
 ## Use
 
 ```bash
