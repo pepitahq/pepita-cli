@@ -1,6 +1,6 @@
 {
   "name": "@pepitahq/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Command-line for pepita sites — pull, apply, save, publish.",
   "license": "MIT",
   "author": "Zoltan Gobolos <zgobolos@barelynotable.com>",
