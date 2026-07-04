@@ -48,6 +48,12 @@ export function isSafeRelPath(p: string): boolean {
   return true;
 }
 
+/** Rule 5: `.gitkeep` markers are server-side folder keepers — never write
+ *  them to local disc (a fresh walkLocal re-injects them on the next apply). */
+export function shouldWriteToDisc(path: string): boolean {
+  return baseName(path) !== '.gitkeep';
+}
+
 /** Pure diff: which paths to write (new or changed) and which to delete. */
 export function computePushPlan(
   local: Map<string, FileEntry>,
@@ -99,6 +105,7 @@ export async function pull(slug: string, state: PullState, dir: string): Promise
       console.warn(`skipping unsafe remote path: ${path}`);
       continue;
     }
+    if (!shouldWriteToDisc(path)) continue; // rule 5: don't litter disc with .gitkeep
     const abs = join(dir, ...path.split('/'));
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, bytes);
