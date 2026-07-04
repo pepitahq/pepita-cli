@@ -8,6 +8,7 @@ Usage: pepita <command> [args]
   logout                      Remove the local token
   whoami                      Show the logged-in account
   list                        List your sites
+  create <name> [--no-analytics] [--from d]   Create a new site (optionally from a local dir)
   pull <slug> [--state live|draft|unsaved] [--dir d]   Download a site's files (default: live)
   apply <slug> [--dir d] [--yes]       Upload local files as unsaved changes
   save <slug>                 Save unsaved changes to the draft
@@ -20,6 +21,7 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   logout: () => import('./commands/logout.js'),
   whoami: () => import('./commands/whoami.js'),
   list: () => import('./commands/list.js'),
+  create: () => import('./commands/create.js'),
   pull: () => import('./commands/pull.js'),
   apply: () => import('./commands/apply.js'),
   save: () => import('./commands/save.js'),
