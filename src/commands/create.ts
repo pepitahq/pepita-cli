@@ -1,6 +1,5 @@
 import { api, UsageError } from '../api.js';
 import { applyLocal } from '../tree.js';
-import { createInterface } from 'node:readline/promises';
 
 export async function run(args: string[]): Promise<void> {
   const name = args.find((a) => !a.startsWith('--'));
@@ -12,15 +11,12 @@ export async function run(args: string[]): Promise<void> {
   console.log(`Created ${slug}\n  live:  ${liveUrl}\n  draft: ${draftUrl}`);
 
   if (from) {
-    const confirm = async (plan: { writes: string[]; deletes: string[] }) => {
-      console.log(`Uploading ${plan.writes.length} file(s) from ${from} to ${slug}…`);
-      return true; // fresh site — nothing to overwrite; auto-proceed
-    };
+    console.log(`Uploading files from ${from} to ${slug}…`);
     // The site's develop tree bootstraps on first /tree; retry briefly if the
     // freshly-provisioned repo isn't populated yet.
     let applied: { written: number; deleted: number } | undefined;
     for (let i = 0; i < 5; i++) {
-      try { applied = await applyLocal(slug, from, true, confirm); break; }
+      try { applied = await applyLocal(slug, from, true, async () => true); break; }
       catch (err) {
         if (i < 4 && /404|empty|not found/i.test((err as Error).message)) { await new Promise((r) => setTimeout(r, 750)); continue; }
         throw err;
