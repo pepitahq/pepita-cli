@@ -105,9 +105,12 @@ export async function pull(slug: string, state: PullState, dir: string): Promise
       console.warn(`skipping unsafe remote path: ${path}`);
       continue;
     }
-    if (!shouldWriteToDisc(path)) continue; // rule 5: don't litter disc with .gitkeep
     const abs = join(dir, ...path.split('/'));
+    // Rule 5: don't write .gitkeep markers to disc — but DO materialize the
+    // folder they keep alive, so a fresh walkLocal re-injects the marker and a
+    // pull→apply is a true no-op (otherwise a leaf empty folder reads as a delete).
     mkdirSync(dirname(abs), { recursive: true });
+    if (!shouldWriteToDisc(path)) continue;
     writeFileSync(abs, bytes);
     written++;
   }
