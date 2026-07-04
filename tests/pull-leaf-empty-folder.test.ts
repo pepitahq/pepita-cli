@@ -38,7 +38,7 @@ describe('pull — leaf empty folder', () => {
     // The marker file itself must NOT be written (rule 5).
     expect(existsSync(join(dir, 'empty', '.gitkeep'))).toBe(false);
     // But the folder it was keeping alive MUST exist on disc, so a
-    // subsequent walkLocal re-injects the marker and computePushPlan sees
+    // subsequent walkLocal re-injects the marker and computeApplyPlan sees
     // no diff (a pull→apply is a true no-op instead of emitting a DELETE).
     expect(existsSync(join(dir, 'empty'))).toBe(true);
     expect(written).toBe(0);

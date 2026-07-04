@@ -36,7 +36,7 @@ export function encodingFor(path: string): Encoding {
  * True iff `p` is a relative path that stays inside its base directory:
  * non-empty, not absolute, and contains no `..` segment. Guards against a
  * malicious/misbehaving server-provided path escaping the pull target dir,
- * and symmetrically against a locally symlink-escaped path being pushed.
+ * and symmetrically against a locally symlink-escaped path being uploaded.
  */
 export function isSafeRelPath(p: string): boolean {
   if (!p) return false;
@@ -55,7 +55,7 @@ export function shouldWriteToDisc(path: string): boolean {
 }
 
 /** Pure diff: which paths to write (new or changed) and which to delete. */
-export function computePushPlan(
+export function computeApplyPlan(
   local: Map<string, FileEntry>,
   remote: Map<string, FileEntry>
 ): { writes: string[]; deletes: string[] } {
@@ -160,7 +160,7 @@ const MB = 1024 * 1024;
 
 /** Human-readable multi-line message for a failed preflight verdict. */
 export function formatPreflightError(pf: import('@pepitahq/shared').PreflightResult): string {
-  const lines: string[] = ['push would exceed pepita size limits:'];
+  const lines: string[] = ['this would exceed pepita size limits:'];
   for (const v of pf.perFileViolations) {
     lines.push(
       `  ${v.path}: ${(v.size / MB).toFixed(1)} MB (max ${(pf.budget.perFileBytes / MB).toFixed(0)} MB per file)`
@@ -186,7 +186,7 @@ export async function applyLocal(
 ): Promise<{ written: number; deleted: number }> {
   const local = walkLocal(dir);
   const remote = await fetchRemote(slug, 'develop');
-  const plan = computePushPlan(local, remote);
+  const plan = computeApplyPlan(local, remote);
   if (plan.writes.length === 0 && plan.deletes.length === 0) return { written: 0, deleted: 0 };
 
   const client = api();
