@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync } from 'n
 import { join, dirname, relative, sep } from 'node:path';
 import { unzipSync } from 'fflate';
 import { api } from './api.js';
+import { isBlockedDotfile } from '@pepitahq/shared';
 
 export type Encoding = 'utf-8' | 'base64';
 export type FileEntry = { content: string; encoding: Encoding };
@@ -19,7 +20,7 @@ export type PullState = 'live' | 'draft' | 'unsaved';
 // stored as UTF-8 vs base64). A mismatch here causes encoding flip-flop /
 // phantom diffs between the CLI and the editor.
 const TEXT_EXT = new Set(['txt', 'xml', 'html', 'htm', 'js', 'css', 'webmanifest', 'svg']);
-const TEXT_BASENAMES = new Set(['_headers']);
+const TEXT_BASENAMES = new Set(['_headers', '.gitkeep']);
 
 function baseName(path: string): string {
   return path.split('/').pop() ?? path;
@@ -108,27 +109,42 @@ export async function pull(slug: string, state: PullState, dir: string): Promise
 
 function walkLocal(dir: string): Map<string, FileEntry> {
   const out = new Map<string, FileEntry>();
-  const walk = (d: string) => {
+  // Feature-C ingest barrier: dotfiles are stripped (except `.well-known/*`
+  // and the `.gitkeep` marker — `isBlockedDotfile` encodes the rule), and every
+  // non-root folder gets a `.gitkeep` so it survives server-side (the store is
+  // path-based and has no empty-folder concept). We also skip `.git` (never
+  // upload the VCS database).
+  const walk = (d: string): void => {
     for (const name of readdirSync(d)) {
-      if (name === '.git' || name === 'node_modules') continue;
+      if (name === '.git') continue;
       const abs = join(d, name);
-      if (statSync(abs).isDirectory()) walk(abs);
-      else {
-        const rel = relative(dir, abs).split(sep).join('/');
-        if (!isSafeRelPath(rel)) {
-          console.warn(`skipping unsafe local path: ${rel}`);
-          continue;
-        }
-        const enc = encodingFor(rel);
-        const content =
-          enc === 'base64' ? readFileSync(abs).toString('base64') : readFileSync(abs, 'utf-8');
-        out.set(rel, { content, encoding: enc });
+      const rel = relative(dir, abs).split(sep).join('/');
+      if (statSync(abs).isDirectory()) {
+        walk(abs);
+        continue;
       }
+      if (!isSafeRelPath(rel)) {
+        console.warn(`skipping unsafe local path: ${rel}`);
+        continue;
+      }
+      if (isBlockedDotfile(rel)) continue; // strip dotfiles at the barrier
+      const enc = encodingFor(rel);
+      const content =
+        enc === 'base64' ? readFileSync(abs).toString('base64') : readFileSync(abs, 'utf-8');
+      out.set(rel, { content, encoding: enc });
+    }
+    // Every non-root folder gets a .gitkeep, unconditionally.
+    if (d !== dir) {
+      const rel = `${relative(dir, d).split(sep).join('/')}/.gitkeep`;
+      if (isSafeRelPath(rel)) out.set(rel, { content: '', encoding: 'utf-8' });
     }
   };
   walk(dir);
   return out;
 }
+
+/** Test-only export of the module-private walkLocal. */
+export const __walkLocalForTest = walkLocal;
 
 /** Upload local files into the site's unsaved working copy (`apply`). Diffs
  *  against the current working copy so only changed/removed paths are sent;
