@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';
 import { unzipSync } from 'fflate';
-import { api } from './api.js';
-import { isBlockedDotfile } from '@pepitahq/shared';
+import { api, UsageError } from './api.js';
+import { isBlockedDotfile, rawByteLength } from '@pepitahq/shared';
 
 export type Encoding = 'utf-8' | 'base64';
 export type FileEntry = { content: string; encoding: Encoding };
@@ -146,6 +146,25 @@ function walkLocal(dir: string): Map<string, FileEntry> {
 /** Test-only export of the module-private walkLocal. */
 export const __walkLocalForTest = walkLocal;
 
+const MB = 1024 * 1024;
+
+/** Human-readable multi-line message for a failed preflight verdict. */
+export function formatPreflightError(pf: import('@pepitahq/shared').PreflightResult): string {
+  const lines: string[] = ['push would exceed pepita size limits:'];
+  for (const v of pf.perFileViolations) {
+    lines.push(
+      `  ${v.path}: ${(v.size / MB).toFixed(1)} MB (max ${(pf.budget.perFileBytes / MB).toFixed(0)} MB per file)`
+    );
+  }
+  if (pf.projectedTotal > pf.budget.totalBytes) {
+    lines.push(
+      `  total would be ${(pf.projectedTotal / MB).toFixed(1)} MB (max ${(pf.budget.totalBytes / MB).toFixed(0)} MB per site)`
+    );
+  }
+  lines.push('Shrink or remove the oversized file(s) and try again.');
+  return lines.join('\n');
+}
+
 /** Upload local files into the site's unsaved working copy (`apply`). Diffs
  *  against the current working copy so only changed/removed paths are sent;
  *  `save` then persists them to the draft. */
@@ -159,9 +178,17 @@ export async function applyLocal(
   const remote = await fetchRemote(slug, 'develop');
   const plan = computePushPlan(local, remote);
   if (plan.writes.length === 0 && plan.deletes.length === 0) return { written: 0, deleted: 0 };
-  if (!yes && !(await confirm(plan))) return { written: 0, deleted: 0 };
 
   const client = api();
+  const writes = plan.writes.map((path) => {
+    const f = local.get(path)!;
+    return { path, size: rawByteLength(f.content, f.encoding) };
+  });
+  const pf = await client.preflight(slug, { writes, deletes: plan.deletes });
+  if (!pf.ok) throw new UsageError(formatPreflightError(pf));
+
+  if (!yes && !(await confirm(plan))) return { written: 0, deleted: 0 };
+
   for (const path of plan.writes) {
     const f = local.get(path)!;
     await client.writeFile(slug, path, f.content, f.encoding);
