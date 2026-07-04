@@ -13,6 +13,7 @@ Usage: pepita <command> [args]
   apply <slug> [--dir d] [--yes]       Upload local files as unsaved changes
   save <slug>                 Save unsaved changes to the draft
   publish <slug>              Publish the draft to live
+  delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
   status <slug>               Show unsaved changes + URLs
 `;
 
@@ -26,6 +27,7 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   apply: () => import('./commands/apply.js'),
   save: () => import('./commands/save.js'),
   publish: () => import('./commands/publish.js'),
+  delete: () => import('./commands/delete.js'),
   status: () => import('./commands/status.js')
 };
 
