@@ -11,7 +11,7 @@ Usage: pepita <command> [args]
   create <name> [--no-analytics] [--from d]   Create a new site (optionally from a local dir)
   pull <slug> [--state live|draft|unsaved] [--dir d]   Download a site's files (default: live)
   apply <slug> [--dir d] [--yes]       Upload local files into the site's working copy
-  preview <slug> [--delete <name>]     Freeze the site as a shareable, immutable link
+  preview <slug> [--update <name>] [--delete <name>]   Create, update, or remove a shareable preview link
   previews <slug>             List active preview links
   publish <slug>              Put the current site live
   delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
