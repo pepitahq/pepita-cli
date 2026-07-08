@@ -8,7 +8,8 @@ export async function run(args: string[]): Promise<void> {
   const from = args.includes('--from') ? args[args.indexOf('--from') + 1] : undefined;
 
   const { slug, liveUrl, draftUrl } = await api().createSite(name, { allowAnalytics });
-  console.log(`Created ${slug}\n  live:  ${liveUrl}\n  draft: ${draftUrl}`);
+  // New-model servers return no draftUrl (previews replace the fixed staging URL).
+  console.log(`Created ${slug}\n  live:  ${liveUrl}${draftUrl ? `\n  draft: ${draftUrl}` : ''}`);
 
   if (from) {
     console.log(`Uploading files from ${from} to ${slug}…`);
@@ -22,6 +23,6 @@ export async function run(args: string[]): Promise<void> {
         throw err;
       }
     }
-    console.log(`Uploaded ${applied!.written} file(s) (unsaved). Run \`pepita save ${slug}\` then \`pepita publish ${slug}\`.`);
+    console.log(`Uploaded ${applied!.written} file(s). Run \`pepita publish ${slug}\` to go live, or \`pepita preview ${slug}\` for a shareable link.`);
   }
 }

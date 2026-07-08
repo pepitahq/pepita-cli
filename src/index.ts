@@ -10,11 +10,12 @@ Usage: pepita <command> [args]
   list                        List your sites
   create <name> [--no-analytics] [--from d]   Create a new site (optionally from a local dir)
   pull <slug> [--state live|draft|unsaved] [--dir d]   Download a site's files (default: live)
-  apply <slug> [--dir d] [--yes]       Upload local files as unsaved changes
-  save <slug>                 Save unsaved changes to the draft
-  publish <slug>              Publish the draft to live
+  apply <slug> [--dir d] [--yes]       Upload local files into the site's working copy
+  preview <slug> [--delete <name>]     Freeze the site as a shareable, immutable link
+  previews <slug>             List active preview links
+  publish <slug>              Put the current site live
   delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
-  status <slug>               Show unsaved changes + URLs
+  status <slug>               Show pending changes + URLs
 `;
 
 const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<void> | void }>> = {
@@ -25,7 +26,8 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   create: () => import('./commands/create.js'),
   pull: () => import('./commands/pull.js'),
   apply: () => import('./commands/apply.js'),
-  save: () => import('./commands/save.js'),
+  preview: () => import('./commands/preview.js'),
+  previews: () => import('./commands/previews.js'),
   publish: () => import('./commands/publish.js'),
   delete: () => import('./commands/delete.js'),
   status: () => import('./commands/status.js')
