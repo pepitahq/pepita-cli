@@ -20,7 +20,7 @@ npx @pepitahq/cli <command>
 ```bash
 pepita login                          # opens the browser to authorize this device
 pepita list                           # your sites
-pepita pull my-site --dir ./my-site   # download the live site to a folder
+pepita pull my-site --dir ./my-site   # download the working copy to a folder
 # …edit files locally with your own tools…
 pepita apply my-site --dir ./my-site  # upload local changes into the working copy
 pepita preview my-site                # a shareable link to review first
@@ -36,7 +36,7 @@ pepita publish my-site                # put the current site live
 | `whoami` | Show the logged-in account |
 | `list` | List your sites |
 | `create <name> [--no-analytics] [--from <dir>]` | Create a new site (optionally seeded from a local folder) |
-| `pull <slug> [--state live\|draft\|unsaved] [--dir <path>]` | Download a site's files (default: `live`) |
+| `pull <slug> [--state live] [--preview <name>] [--dir <path>]` | Download files (default: the working copy) |
 | `apply <slug> [--dir <path>] [--yes]` | Upload local files into the site's working copy |
 | `preview <slug> [--update <name>] [--delete <name>]` | Create, update, or remove a shareable preview link |
 | `previews <slug>` | List active preview links |
@@ -44,18 +44,16 @@ pepita publish my-site                # put the current site live
 | `status <slug>` | Show pending changes + URLs |
 | `delete <slug> [--download-snapshot] [--yes]` | Permanently delete a site (optionally snapshot to `/tmp` first) |
 
-### The three states (`pull --state …`)
+### What `pull` downloads
 
-| `--state` | what you get | URL |
-|-----------|--------------|-----|
-| `live` (default) | the published site | `my-site.pepita.page` |
-| `draft` | the `draft` staging preview | `my-site--draft.pepita.page` |
-| `unsaved` | your current working copy, including un-published edits | — |
+| target | what you get |
+|--------|--------------|
+| *(default)* | the **working copy** — the site as it stands in the editor |
+| `--state live` | the **published** live site |
+| `--preview <name>` | a specific **preview** link's files (name from `previews`) |
 
-`live`/`draft` are complete checkouts of a committed version (the same bytes
-those URLs serve); `unsaved` is the editable working set — exactly what the
-editor shows. `apply` always uploads into the `unsaved` working copy; from there
-`publish` puts it live, and `preview` freezes a shareable snapshot link.
+`apply` uploads local files into the working copy; from there `publish` puts it
+live, and `preview` shares it at a stable link.
 
 - The token is stored in `~/.pepita/config.json` (mode 600). Revoke any device
   in **Connected devices** in the editor. `PEPITA_API_BASE` overrides the host.
@@ -64,10 +62,10 @@ editor shows. `apply` always uploads into the `unsaved` working copy; from there
 
 - `pull` writes/overwrites files locally but does NOT delete local files that
   are absent from the fetched state.
-- `apply` will DELETE files from the unsaved working copy that exist remotely
-  but not in your local directory — it shows a plan and asks for confirmation
-  unless `--yes` is passed. Run `apply` from a complete copy of the site
-  (ideally a fresh `pull --state unsaved`) to avoid surprise deletions.
+- `apply` will DELETE files from the working copy that exist remotely but not in
+  your local directory — it shows a plan and asks for confirmation unless
+  `--yes` is passed. Run `apply` from a complete copy of the site (ideally a
+  fresh `pull`) to avoid surprise deletions.
 
 ## Security
 

@@ -64,7 +64,7 @@ export async function run(args: string[]): Promise<void> {
   // without the backup the user asked for.
   if (snapshot) {
     const dir = backupDir(slug, dirOverride);
-    const n = await pull(slug, 'unsaved', dir);
+    const n = await pull(slug, { kind: 'working' }, dir);
     console.log(`Backup: ${n} file(s) -> ${dir}`);
   }
 

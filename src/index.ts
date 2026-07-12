@@ -9,7 +9,7 @@ Usage: pepita <command> [args]
   whoami                      Show the logged-in account
   list                        List your sites
   create <name> [--no-analytics] [--from d]   Create a new site (optionally from a local dir)
-  pull <slug> [--state live|draft|unsaved] [--dir d]   Download a site's files (default: live)
+  pull <slug> [--state live] [--preview <name>] [--dir d]   Download files (default: the working copy)
   apply <slug> [--dir d] [--yes]       Upload local files into the site's working copy
   preview <slug> [--update <name>] [--delete <name>]   Create, update, or remove a shareable preview link
   previews <slug>             List active preview links
