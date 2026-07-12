@@ -5,7 +5,7 @@
 
 Command-line access to your [pepita](https://pepita.dev) sites. Talks to
 `app.pepita.dev` over HTTPS; you sign in once via a browser-based device
-authorization (OAuth-style).
+authorization — the way `wrangler` or `gh` do it, no pasted API key.
 
 ## Install
 
@@ -19,26 +19,43 @@ npx @pepitahq/cli <command>
 
 ```bash
 pepita login                          # opens the browser to authorize this device
-pepita list
-pepita pull my-site                   # the live site (default)
-pepita pull my-site --state unsaved   # your current working copy
-# …edit files locally…
-pepita apply my-site                  # upload as unsaved changes
-pepita save my-site                   # save unsaved → draft
-pepita publish my-site                # publish draft → live
+pepita list                           # your sites
+pepita pull my-site --dir ./my-site   # download the live site to a folder
+# …edit files locally with your own tools…
+pepita apply my-site --dir ./my-site  # upload local changes into the working copy
+pepita preview my-site                # a shareable link to review first
+pepita publish my-site                # put the current site live
 ```
+
+## Commands
+
+| Command | What it does |
+|---------|--------------|
+| `login` | Authorize this device in the browser |
+| `logout` | Remove the local token (revokes the device server-side) |
+| `whoami` | Show the logged-in account |
+| `list` | List your sites |
+| `create <name> [--no-analytics] [--from <dir>]` | Create a new site (optionally seeded from a local folder) |
+| `pull <slug> [--state live\|draft\|unsaved] [--dir <path>]` | Download a site's files (default: `live`) |
+| `apply <slug> [--dir <path>] [--yes]` | Upload local files into the site's working copy |
+| `preview <slug> [--update <name>] [--delete <name>]` | Create, update, or remove a shareable preview link |
+| `previews <slug>` | List active preview links |
+| `publish <slug>` | Put the current site live |
+| `status <slug>` | Show pending changes + URLs |
+| `delete <slug> [--download-snapshot] [--yes]` | Permanently delete a site (optionally snapshot to `/tmp` first) |
 
 ### The three states (`pull --state …`)
 
 | `--state` | what you get | URL |
 |-----------|--------------|-----|
 | `live` (default) | the published site | `my-site.pepita.page` |
-| `draft` | the saved staging site (excludes unsaved edits) | `my-site--draft.pepita.page` |
-| `unsaved` | your current working copy, including un-saved edits | — |
+| `draft` | the `draft` staging preview | `my-site--draft.pepita.page` |
+| `unsaved` | your current working copy, including un-published edits | — |
 
-`live`/`draft` are complete checkouts (same as the editor's "Download .zip");
-`unsaved` is the editable working set. `apply` always uploads into the
-`unsaved` state — then `save` promotes it to `draft`, and `publish` to `live`.
+`live`/`draft` are complete checkouts of a committed version (the same bytes
+those URLs serve); `unsaved` is the editable working set — exactly what the
+editor shows. `apply` always uploads into the `unsaved` working copy; from there
+`publish` puts it live, and `preview` freezes a shareable snapshot link.
 
 - The token is stored in `~/.pepita/config.json` (mode 600). Revoke any device
   in **Connected devices** in the editor. `PEPITA_API_BASE` overrides the host.
