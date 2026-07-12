@@ -177,7 +177,7 @@ export function formatPreflightError(pf: import('@pepitahq/shared').PreflightRes
 
 /** Upload local files into the site's unsaved working copy (`apply`). Diffs
  *  against the current working copy so only changed/removed paths are sent;
- *  `save` then persists them to the draft. */
+ *  `publish` then puts them live, or `preview` shares them at a stable link. */
 export async function applyLocal(
   slug: string,
   dir: string,
