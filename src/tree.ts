@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync } from 'n
 import { join, dirname, relative, sep } from 'node:path';
 import { unzipSync } from 'fflate';
 import { api, UsageError } from './api.js';
-import { isBlockedDotfile, rawByteLength } from '@pepitahq/shared';
+import { isBlockedPath, rawByteLength } from '@pepitahq/shared';
 
 export type Encoding = 'utf-8' | 'base64';
 export type FileEntry = { content: string; encoding: Encoding };
@@ -121,8 +121,9 @@ export async function pull(slug: string, target: PullTarget, dir: string): Promi
 
 function walkLocal(dir: string): Map<string, FileEntry> {
   const out = new Map<string, FileEntry>();
-  // Feature-C ingest barrier: dotfiles are stripped (except `.well-known/*`
-  // and the `.gitkeep` marker — `isBlockedDotfile` encodes the rule), and every
+  // Feature-C ingest barrier: dotfiles (except `.well-known/*` and the
+  // `.gitkeep` marker) AND pepita's reserved `__pepita/` namespace are stripped
+  // — `isBlockedPath` encodes both rules, same gate the server enforces. Every
   // non-root folder gets a `.gitkeep` so it survives server-side (the store is
   // path-based and has no empty-folder concept). We also skip `.git` (never
   // upload the VCS database).
@@ -139,7 +140,7 @@ function walkLocal(dir: string): Map<string, FileEntry> {
         console.warn(`skipping unsafe local path: ${rel}`);
         continue;
       }
-      if (isBlockedDotfile(rel)) continue; // strip dotfiles at the barrier
+      if (isBlockedPath(rel)) continue; // strip dotfiles + reserved paths at the barrier
       const enc = encodingFor(rel);
       const content =
         enc === 'base64' ? readFileSync(abs).toString('base64') : readFileSync(abs, 'utf-8');
