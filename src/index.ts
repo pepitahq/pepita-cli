@@ -16,7 +16,7 @@ Usage: pepita <command> [args]
   publish <slug>              Put the current site live
   delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
   status <slug>               Show pending changes + URLs
-  asset <sub> --site <slug>   Video assets: add <file> | list | info <id> | rm <id> | pull <id>
+  asset <sub> --site <slug>   Video assets: add <file> | list | info <id> | rename <id> <name> | rm <id> | pull <id>
 `;
 
 const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<void> | void }>> = {

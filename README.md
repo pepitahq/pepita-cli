@@ -43,7 +43,7 @@ pepita publish my-site                # put the current site live
 | `publish <slug>` | Put the current site live |
 | `status <slug>` | Show pending changes + URLs |
 | `delete <slug> [--download-snapshot] [--yes]` | Permanently delete a site (optionally snapshot to `/tmp` first) |
-| `asset <sub> --site <slug>` | Video assets: `add <file>` (upload + transcode), `list`, `info <id>`, `rm <id>`, `pull <id>` (download the original) |
+| `asset <sub> --site <slug>` | Video assets: `add <file>` (upload + transcode), `list`, `info <id>`, `rename <id> <new name>` (label only — URLs keep working), `rm <id>`, `pull <id>` (download the original) |
 
 Videos never live in the site's file tree — `apply` refuses video files and
 points you at `asset add`, which uploads to the asset library and transcodes

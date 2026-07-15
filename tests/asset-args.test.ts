@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   flagValue,
   positional,
+  positionals,
   formatBytes,
   formatDuration,
   formatTimestamp,
@@ -21,6 +22,22 @@ describe('asset arg parsing', () => {
     expect(positional(['clip.mp4', '--site', 'docs'], ['--site'])).toBe('clip.mp4');
     expect(positional(['--site', 'docs'], ['--site'])).toBeUndefined();
     expect(positional(['abc', '--site', 'docs', '--out', 'x.mp4'], ['--site', '--out'])).toBe('abc');
+  });
+
+  it('collects ALL positionals in order (rename takes a multi-word name unquoted)', () => {
+    // `pepita asset rename <id> Hero video final --site docs`
+    expect(positionals(['abc', 'Hero', 'video', 'final', '--site', 'docs'], ['--site'])).toEqual([
+      'abc',
+      'Hero',
+      'video',
+      'final'
+    ]);
+    // Flag values are never positionals, wherever the flag sits.
+    expect(positionals(['--site', 'docs', 'abc', 'New name'], ['--site'])).toEqual([
+      'abc',
+      'New name'
+    ]);
+    expect(positionals(['--site', 'docs'], ['--site'])).toEqual([]);
   });
 });
 

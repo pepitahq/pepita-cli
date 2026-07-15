@@ -11,6 +11,7 @@
  *   pepita asset add <file> --site <slug>
  *   pepita asset list --site <slug>
  *   pepita asset info <id> --site <slug>
+ *   pepita asset rename <id> <new name> --site <slug>
  *   pepita asset rm <id> --site <slug> [--yes]
  *   pepita asset pull <id> --site <slug> [--out <path>]
  *
@@ -31,6 +32,7 @@ const USAGE = `usage:
   pepita asset add <file> --site <slug>
   pepita asset list --site <slug>
   pepita asset info <id> --site <slug>
+  pepita asset rename <id> <new name> --site <slug>
   pepita asset rm <id> --site <slug> [--yes]
   pepita asset pull <id> --site <slug> [--out <path>]`;
 
@@ -66,6 +68,18 @@ export function positional(args: string[], flags: string[]): string | undefined 
     if (i !== -1) consumed.add(i + 1);
   }
   return args.find((a, i) => !a.startsWith('--') && !consumed.has(i));
+}
+
+/** ALL positionals, in order. Lets `rename` take a multi-word name without
+ *  quoting: everything after the id (that isn't a flag or its value) is the
+ *  name — `pepita asset rename <id> Hero video final --site x`. */
+export function positionals(args: string[], flags: string[]): string[] {
+  const consumed = new Set<number>();
+  for (const f of flags) {
+    const i = args.indexOf(f);
+    if (i !== -1) consumed.add(i + 1);
+  }
+  return args.filter((a, i) => !a.startsWith('--') && !consumed.has(i));
 }
 
 export function formatBytes(n: number | null | undefined): string {
@@ -261,6 +275,27 @@ async function cmdInfo(args: string[]): Promise<void> {
   );
 }
 
+async function cmdRename(args: string[]): Promise<void> {
+  const slug = flagValue(args, '--site');
+  const [id, ...nameParts] = positionals(args, ['--site']);
+  const name = nameParts.join(' ').trim();
+  if (!id || !slug || !name)
+    throw new UsageError('usage: pepita asset rename <id> <new name> --site <slug>');
+
+  // Fail early on a wrong id (and pick up the old name for the confirmation).
+  const a = await findAsset(slug, id);
+  // The name is a display label only — identity is the id, so the stored URLs
+  // (and any markup referencing them) are untouched by a rename.
+  await api().json<{ ok: boolean }>(`/api/sites/${enc(slug)}/assets/${enc(id)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ filename: name })
+  });
+  console.log(
+    `Renamed "${a.originalFilename ?? id}" -> "${name}". (Label only — URLs and pages referencing it keep working.)`
+  );
+}
+
 async function cmdRm(args: string[]): Promise<void> {
   const id = positional(args, ['--site']);
   const slug = flagValue(args, '--site');
@@ -323,6 +358,7 @@ export async function run(args: string[]): Promise<void> {
     add: cmdAdd,
     list: cmdList,
     info: cmdInfo,
+    rename: cmdRename,
     rm: cmdRm,
     pull: cmdPull
   };
