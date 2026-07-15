@@ -1,8 +1,17 @@
-import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  openSync,
+  readSync,
+  closeSync
+} from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';
 import { unzipSync } from 'fflate';
 import { api, UsageError } from './api.js';
-import { isBlockedPath, rawByteLength } from '@pepitahq/shared';
+import { isBlockedPath, rawByteLength, sniffVideoMime, VIDEO_SNIFF_BYTES } from '@pepitahq/shared';
 
 export type Encoding = 'utf-8' | 'base64';
 export type FileEntry = { content: string; encoding: Encoding };
@@ -119,8 +128,54 @@ export async function pull(slug: string, target: PullTarget, dir: string): Promi
   return written;
 }
 
-function walkLocal(dir: string): Map<string, FileEntry> {
+/**
+ * Sniff a local file's leading bytes for a video container. CONTENT, never the
+ * extension — a video renamed `promo.txt` is still a video. Reads only the head
+ * (`VIDEO_SNIFF_BYTES`), never the whole file: this runs on every walked file,
+ * and the files it exists to catch are the multi-GB ones.
+ */
+function sniffVideoFile(abs: string): string | null {
+  const fd = openSync(abs, 'r');
+  try {
+    const buf = Buffer.alloc(VIDEO_SNIFF_BYTES);
+    const read = readSync(fd, buf, 0, VIDEO_SNIFF_BYTES, 0);
+    return sniffVideoMime(new Uint8Array(buf.subarray(0, read)));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** The message for a batch that contains video. Names every offender — the user
+ *  has to know which files to pull out, not just that "something" was wrong. */
+export function formatVideoIngestError(videos: Array<{ path: string; mime: string }>): string {
+  return [
+    `video can't live in a site's files (the file tree is for pages, styles and images —`,
+    `it has a 2 MB per-file budget). Found:`,
+    ...videos.map((v) => `  ${v.path} — ${v.mime}`),
+    'Nothing was applied.',
+    'Move these out of the folder and upload them with `pepita asset add <file> --site <slug>`,',
+    'then reference the URLs it prints from your markup.'
+  ].join('\n');
+}
+
+function walkLocal(dir: string, serverTree?: ReadonlyMap<string, FileEntry>): Map<string, FileEntry> {
   const out = new Map<string, FileEntry>();
+  // The CONTENT-based half of the ingest gate (`isBlockedPath` below is the
+  // PATH-based half — different axes, both needed). Video must never enter the
+  // worktree, and the server enforces that per-write: were we to walk a video
+  // into the plan, the batch would 400 MID-LOOP, after earlier files had already
+  // been written — a half-applied site, which is worse than a clean refusal. So
+  // we collect every offender and refuse the WHOLE batch before writing anything.
+  //
+  // LEGACY carve-out (`serverTree`): sites older than the video gate can already
+  // carry a small committed video in their working copy — a pull brings it to
+  // disc, and without the carve-out that site could never `apply` again. A
+  // sniffed video whose bytes are IDENTICAL to the server's copy at the same
+  // path is a no-op: we put the server's own entry in the map, so the diff
+  // neither writes it (contents equal) nor deletes it (present locally). A NEW
+  // or CHANGED video still refuses the whole batch — the gate only yields where
+  // applying would change nothing.
+  const videos: Array<{ path: string; mime: string }> = [];
   // Feature-C ingest barrier: dotfiles (except `.well-known/*` and the
   // `.gitkeep` marker) AND pepita's reserved `__pepita/` namespace are stripped
   // — `isBlockedPath` encodes both rules, same gate the server enforces. Every
@@ -132,7 +187,8 @@ function walkLocal(dir: string): Map<string, FileEntry> {
       if (name === '.git') continue;
       const abs = join(d, name);
       const rel = relative(dir, abs).split(sep).join('/');
-      if (statSync(abs).isDirectory()) {
+      const st = statSync(abs);
+      if (st.isDirectory()) {
         walk(abs);
         continue;
       }
@@ -141,6 +197,28 @@ function walkLocal(dir: string): Map<string, FileEntry> {
         continue;
       }
       if (isBlockedPath(rel)) continue; // strip dotfiles + reserved paths at the barrier
+      // Sniff BEFORE reading the file — a video must never be slurped into memory.
+      const videoMime = sniffVideoFile(abs);
+      if (videoMime) {
+        // Legacy carve-out (see the header comment): unchanged-vs-server is a
+        // no-op, not an offence. Size gates the comparison — mismatched size is
+        // a changed video (error path) WITHOUT reading it, and a matched size is
+        // bounded by the server's per-file budget, so the read is small.
+        const server = serverTree?.get(rel);
+        if (server && st.size === rawByteLength(server.content, server.encoding)) {
+          const localContent =
+            server.encoding === 'base64'
+              ? readFileSync(abs).toString('base64')
+              : readFileSync(abs, 'utf-8');
+          if (localContent === server.content) {
+            console.warn(`skipping unchanged video ${rel} (already on the site)`);
+            out.set(rel, server);
+            continue;
+          }
+        }
+        videos.push({ path: rel, mime: videoMime });
+        continue;
+      }
       const enc = encodingFor(rel);
       const content =
         enc === 'base64' ? readFileSync(abs).toString('base64') : readFileSync(abs, 'utf-8');
@@ -153,6 +231,9 @@ function walkLocal(dir: string): Map<string, FileEntry> {
     }
   };
   walk(dir);
+  // Refuse the whole batch, loudly — never silently strip (that would publish a
+  // site whose video simply isn't there, with no warning) and never partially apply.
+  if (videos.length > 0) throw new UsageError(formatVideoIngestError(videos));
   return out;
 }
 
@@ -187,8 +268,10 @@ export async function applyLocal(
   yes: boolean,
   confirm: (plan: { writes: string[]; deletes: string[] }) => Promise<boolean>
 ): Promise<{ written: number; deleted: number }> {
-  const local = walkLocal(dir);
+  // Remote FIRST: walkLocal needs the server tree to recognize a legacy
+  // committed video as unchanged (see the carve-out in walkLocal).
   const remote = await fetchRemote(slug);
+  const local = walkLocal(dir, remote);
   const plan = computeApplyPlan(local, remote);
   if (plan.writes.length === 0 && plan.deletes.length === 0) return { written: 0, deleted: 0 };
 

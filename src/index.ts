@@ -16,6 +16,7 @@ Usage: pepita <command> [args]
   publish <slug>              Put the current site live
   delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
   status <slug>               Show pending changes + URLs
+  asset <sub> --site <slug>   Video assets: add <file> | list | info <id> | rm <id> | pull <id>
 `;
 
 const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<void> | void }>> = {
@@ -30,7 +31,8 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   previews: () => import('./commands/previews.js'),
   publish: () => import('./commands/publish.js'),
   delete: () => import('./commands/delete.js'),
-  status: () => import('./commands/status.js')
+  status: () => import('./commands/status.js'),
+  asset: () => import('./commands/asset.js')
 };
 
 async function main() {
