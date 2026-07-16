@@ -41,7 +41,7 @@ pepita publish my-site                # put the current site live
 | `preview <slug> [--update <name>] [--delete <name>]` | Create, update, or remove a shareable preview link |
 | `previews <slug>` | List active preview links |
 | `publish <slug>` | Put the current site live |
-| `status <slug>` | Show pending changes + URLs |
+| `status [slug]` | Without a slug: your balance + every site's URL. With one: that site's pending changes |
 | `delete <slug> [--download-snapshot] [--yes]` | Permanently delete a site (optionally snapshot to `/tmp` first) |
 | `asset <sub> --site <slug>` | Video assets: `add <file>` (upload + transcode), `list`, `info <id>`, `rename <id> <new name>` (label only — URLs keep working), `rm <id>`, `pull <id>` (download the original) |
 
@@ -49,6 +49,12 @@ Videos never live in the site's file tree — `apply` refuses video files and
 points you at `asset add`, which uploads to the asset library and transcodes
 for streaming. A video already on the site and unchanged locally is skipped
 silently, so a `pull` → `apply` round-trip keeps working.
+
+**Video uploads cost money**: hosting is metered at **$0.55 per minute of
+source footage** (per-second pro-rata), charged from your pepita balance when
+you upload — `pepita status` shows what's left. Only **mp4, mov and m4v**
+files are accepted, and by content, not by extension: a WebM renamed `.mp4`
+is rejected before any upload starts.
 
 ### What `pull` downloads
 
@@ -62,7 +68,7 @@ silently, so a `pull` → `apply` round-trip keeps working.
 live, and `preview` shares it at a stable link.
 
 - The token is stored in `~/.pepita/config.json` (mode 600). Revoke any device
-  in **Connected devices** in the editor. `PEPITA_API_BASE` overrides the host.
+  under your avatar → Settings → **Devices**. `PEPITA_API_BASE` overrides the host.
 
 ## Notes
 

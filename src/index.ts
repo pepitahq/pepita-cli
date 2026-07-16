@@ -15,7 +15,7 @@ Usage: pepita <command> [args]
   previews <slug>             List active preview links
   publish <slug>              Put the current site live
   delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
-  status <slug>               Show pending changes + URLs
+  status [slug]               Balance + your sites; with a slug, its pending changes
   asset <sub> --site <slug>   Video assets: add <file> | list | info <id> | rename <id> <name> | rm <id> | pull <id>
 `;
 
