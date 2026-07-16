@@ -17,6 +17,7 @@ const FORBIDDEN = [
   'videoChargeMicroUsd',
   'computeTopUp',
   'computeClawback',
+  '@pepitahq/shared-srv', // the real-money package itself
 ];
 
 function sources(dir: string, out: string[] = []): string[] {
