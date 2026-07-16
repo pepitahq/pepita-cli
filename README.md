@@ -36,7 +36,7 @@ pepita publish my-site                # put the current site live
 | `whoami` | Show the logged-in account |
 | `list` | List your sites |
 | `create <name> [--no-analytics] [--from <dir>]` | Create a new site (optionally seeded from a local folder) |
-| `pull <slug> [--state live] [--preview <name>] [--dir <path>]` | Download files (default: the working copy) |
+| `pull <slug> [--live] [--preview <name>] [--dir <path>]` | Download files (default: the working copy) |
 | `apply <slug> [--dir <path>] [--yes]` | Upload local files into the site's working copy |
 | `preview <slug> [--update <name>] [--delete <name>]` | Create, update, or remove a shareable preview link |
 | `previews <slug>` | List active preview links |
@@ -55,7 +55,7 @@ silently, so a `pull` → `apply` round-trip keeps working.
 | target | what you get |
 |--------|--------------|
 | *(default)* | the **working copy** — the site as it stands in the editor |
-| `--state live` | the **published** live site |
+| `--live` | the **published** live site |
 | `--preview <name>` | a specific **preview** link's files (name from `previews`) |
 
 `apply` uploads local files into the working copy; from there `publish` puts it
