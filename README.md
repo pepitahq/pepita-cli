@@ -50,7 +50,7 @@ points you at `asset add`, which uploads to the asset library and transcodes
 for streaming. A video already on the site and unchanged locally is skipped
 silently, so a `pull` → `apply` round-trip keeps working.
 
-**Video uploads cost money**: hosting is metered at **$0.55 per minute of
+**Video uploads cost money**: hosting is metered at **$0.60 per minute of
 source footage** (per-second pro-rata), charged from your pepita balance when
 you upload — `pepita status` shows what's left. Only **mp4, mov and m4v**
 files are accepted, and by content, not by extension: a WebM renamed `.mp4`
