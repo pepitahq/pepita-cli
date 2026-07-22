@@ -2,7 +2,7 @@
  * pepita asset <sub> — the VIDEO asset surface.
  *
  * Video does NOT live in the site's file tree (the worktree budget is 20 MB
- * total / 2 MB per file, and the tree refuses videos by magic bytes). It lives
+ * total / 5 MB per file, and the tree refuses videos by magic bytes). It lives
  * in pepita's asset pipeline: upload → transcode → an HLS ladder + poster on the
  * CDN. This command group is the local half of that — the one place a multi-GB
  * file can be handed over, since the bytes go straight to storage with presigned

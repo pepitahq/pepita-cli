@@ -150,7 +150,7 @@ function sniffVideoFile(abs: string): string | null {
 export function formatVideoIngestError(videos: Array<{ path: string; mime: string }>): string {
   return [
     `video can't live in a site's files (the file tree is for pages, styles and images —`,
-    `it has a 2 MB per-file budget). Found:`,
+    `it has a 5 MB per-file budget). Found:`,
     ...videos.map((v) => `  ${v.path} — ${v.mime}`),
     'Nothing was applied.',
     'Move these out of the folder and upload them with `pepita asset add <file> --site <slug>`,',
