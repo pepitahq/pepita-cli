@@ -64,7 +64,7 @@ export async function run(args: string[]): Promise<void> {
   // printing it under a `Site:` heading would present a global figure as if it
   // belonged to this site. It lives on the bare `pepita status` instead, which
   // is the account-wide view.
-  const tree = await api().getTree(slug, 'develop');
+  const tree = await api().getTree(slug);
   const dirty = tree.files.filter((f) => f.dirty).map((f) => f.path);
   console.log(`Site: ${slug}`);
   console.log(`Live:   ${siteLiveUrl(slug)}`);
