@@ -1,13 +1,51 @@
 import { api, UsageError } from '../api.js';
 import { applyLocal } from '../tree.js';
 
-export async function run(args: string[]): Promise<void> {
-  const name = args.find((a) => !a.startsWith('--'));
-  if (!name) throw new UsageError('usage: pepita create <name> [--no-analytics] [--from <dir>]');
-  const allowAnalytics = !args.includes('--no-analytics');
-  const from = args.includes('--from') ? args[args.indexOf('--from') + 1] : undefined;
+const USAGE = 'usage: pepita create <name> [--allow-embedding] [--block-ai-crawlers] [--from <dir>]';
 
-  const { slug, liveUrl, draftUrl } = await api().createSite(name, { allowAnalytics });
+export interface CreateArgs {
+  name: string;
+  /** Allow other sites to iframe-embed this one (server default: deny). */
+  embeddable: boolean;
+  /** Visible to AI crawlers (server default: visible). */
+  aiVisible: boolean;
+  from?: string;
+}
+
+export function parseCreateArgs(args: string[]): CreateArgs {
+  let name: string | undefined;
+  let embeddable = false;
+  let aiVisible = true;
+  let from: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--allow-embedding') { embeddable = true; continue; }
+    if (a === '--block-ai-crawlers') { aiVisible = false; continue; }
+    if (a === '--from') {
+      const v = args[++i];
+      if (!v || v.startsWith('--')) throw new UsageError('--from <dir> needs a path');
+      from = v;
+      continue;
+    }
+    if (a === '--no-analytics') {
+      // Retired in 0.10.0. Fail loudly so a script doesn't create a site
+      // while believing analytics is off.
+      throw new UsageError(
+        '`--no-analytics` was removed — analytics is always on at creation (turn it off in Settings → Advanced).'
+      );
+    }
+    if (a.startsWith('--')) throw new UsageError(`unknown flag '${a}'`);
+    if (name !== undefined) throw new UsageError(USAGE);
+    name = a;
+  }
+  if (!name) throw new UsageError(USAGE);
+  return { name, embeddable, aiVisible, from };
+}
+
+export async function run(args: string[]): Promise<void> {
+  const { name, embeddable, aiVisible, from } = parseCreateArgs(args);
+
+  const { slug, liveUrl, draftUrl } = await api().createSite(name, { embeddable, aiVisible });
   // New-model servers return no draftUrl (previews replace the fixed staging URL).
   console.log(`Created ${slug}\n  live:  ${liveUrl}${draftUrl ? `\n  draft: ${draftUrl}` : ''}`);
 

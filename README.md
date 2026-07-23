@@ -35,7 +35,7 @@ pepita publish my-site                # put the current site live
 | `logout` | Remove the local token (revokes the device server-side) |
 | `whoami` | Show the logged-in account |
 | `list` | List your sites |
-| `create <name> [--no-analytics] [--from <dir>]` | Create a new site (optionally seeded from a local folder) |
+| `create <name> [--allow-embedding] [--block-ai-crawlers] [--from <dir>]` | Create a new site (optionally seeded from a local folder). Embedding starts denied and AI visibility on; analytics is always on at creation — all three changeable later in Settings → Advanced |
 | `pull <slug> [--live] [--preview <name>] [--dir <path>]` | Download files (default: the working copy) |
 | `apply <slug> [--dir <path>] [--yes]` | Upload local files into the site's working copy |
 | `preview <slug> [--update <name>] [--delete <name>]` | Create, update, or remove a shareable preview link |
