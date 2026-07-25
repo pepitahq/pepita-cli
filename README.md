@@ -33,7 +33,7 @@ pepita publish my-site                # put the current site live
 |---------|--------------|
 | `login` | Authorize this device in the browser |
 | `logout` | Remove the local token (revokes the device server-side) |
-| `whoami` | Show the logged-in account |
+| `whoami` | Show the logged-in account — checked against the server, so a device whose access was revoked says so instead of reporting the cached email |
 | `list` | List your sites |
 | `create <name> [--allow-embedding] [--block-ai-crawlers] [--from <dir>]` | Create a new site (optionally seeded from a local folder). Embedding starts denied and AI visibility on; analytics is always on at creation — all three changeable later in Settings → Advanced |
 | `pull <slug> [--live] [--preview <name>] [--dir <path>]` | Download files (default: the working copy) |

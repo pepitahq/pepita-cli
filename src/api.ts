@@ -15,12 +15,23 @@ export function api(): PepitaApi {
   return makePepitaApi({ apiBase: apiBase(), token: loadConfig().token ?? '' });
 }
 
+/** What to say about a 401. A stored token the server REJECTS is not the same
+ *  state as never having logged in: it was revoked (avatar → Settings → Devices,
+ *  where one stray click on the wrong row does it) or otherwise invalidated.
+ *  Telling that user "not logged in" sends them hunting for a logout they never
+ *  performed — which is exactly what happened on 2026-07-25. */
+export function authErrorMessage(): string {
+  return loadConfig().token
+    ? 'This device’s access was revoked or is no longer valid — run `pepita login` to reconnect.'
+    : 'Not logged in — run `pepita login`.';
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const cfg = loadConfig();
   const headers = new Headers(init.headers);
   if (cfg.token) headers.set('authorization', `Bearer ${cfg.token}`);
   const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
-  if (res.status === 401) throw new AuthError('Not logged in — run `pepita login`.');
+  if (res.status === 401) throw new AuthError(authErrorMessage());
   return res;
 }
 

@@ -1,4 +1,4 @@
-import { AuthError, UsageError, PepitaHttpError } from './api.js';
+import { AuthError, UsageError, PepitaHttpError, authErrorMessage } from './api.js';
 
 const HELP = `pepita — command line for pepita sites
 
@@ -58,7 +58,10 @@ main().catch((err) => {
     console.error(err.message);
     process.exitCode = 1;
   } else if (err instanceof AuthError || (err instanceof PepitaHttpError && err.status === 401)) {
-    console.error('Not logged in — run `pepita login`.');
+    // Both paths land here: AuthError from apiFetch and a 401 from the shared
+    // PepitaApi client. Derive the wording from whether a token is stored, so a
+    // revoked device never gets told it simply "isn't logged in".
+    console.error(authErrorMessage());
     process.exitCode = 2;
   } else {
     console.error(`Error: ${err?.message ?? err}`);

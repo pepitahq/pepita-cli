@@ -3,7 +3,7 @@ import { hostname, userInfo } from 'node:os';
 import { spawn } from 'node:child_process';
 import { sha256Base64Url } from '@pepitahq/shared';
 import { apiBase, loadConfig, saveConfig, clearAuth } from './config.js';
-import { apiFetch } from './api.js';
+import { apiFetch, AuthError, authErrorMessage } from './api.js';
 
 const LOGIN_TIMEOUT_MS = 180_000;
 
@@ -104,7 +104,33 @@ export async function logout(): Promise<void> {
   console.log('Logged out.');
 }
 
-export function whoami(): void {
+export async function whoami(): Promise<void> {
   const cfg = loadConfig();
-  console.log(cfg.token ? (cfg.email ?? 'logged in') : 'Not logged in — run `pepita login`.');
+  if (!cfg.token) {
+    console.log('Not logged in — run `pepita login`.');
+    return;
+  }
+  // ASK THE SERVER. A stored token proves only that this machine logged in once
+  // — it can be revoked at any time from avatar → Settings → Devices, and until
+  // 0.11.1 `whoami` printed the cached email regardless, so a revoked device
+  // reported itself as connected while every other command failed with a
+  // "not logged in" it could not explain.
+  try {
+    const res = await apiFetch('/api/cli-tokens');
+    if (res.ok) {
+      console.log(cfg.email ?? 'logged in');
+      return;
+    }
+    console.log(`${cfg.email ?? 'logged in'} — but the server refused this device (HTTP ${res.status}).`);
+    process.exitCode = 2;
+  } catch (err) {
+    if (err instanceof AuthError) {
+      console.log(authErrorMessage());
+      process.exitCode = 2;
+      return;
+    }
+    // Offline or the API is down: report the cached identity, but never imply we
+    // checked it.
+    console.log(`${cfg.email ?? 'logged in'} (unverified — could not reach ${apiBase()})`);
+  }
 }
