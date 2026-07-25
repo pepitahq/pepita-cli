@@ -28,10 +28,10 @@ export function parseCreateArgs(args: string[]): CreateArgs {
       continue;
     }
     if (a === '--no-analytics') {
-      // Retired in 0.10.0. Fail loudly so a script doesn't create a site
-      // while believing analytics is off.
+      // Retired in 0.10.0, and since 2026-07-25 there is no off switch at all.
+      // Fail loudly so a script doesn't create a site believing analytics is off.
       throw new UsageError(
-        '`--no-analytics` was removed — analytics is always on at creation (turn it off in Settings → Advanced).'
+        '`--no-analytics` was removed — every pepita site has analytics and it cannot be turned off.'
       );
     }
     if (a.startsWith('--')) throw new UsageError(`unknown flag '${a}'`);

@@ -33,8 +33,9 @@ describe('create args', () => {
 
   it('rejects the retired --no-analytics loudly instead of silently ignoring it', () => {
     // 0.9.x shipped it. A script still passing it must not create a site
-    // while believing analytics is off.
-    expect(() => parseCreateArgs(['my-site', '--no-analytics'])).toThrow(/always on at creation/);
+    // while believing analytics is off — and since 2026-07-25 there is no off
+    // switch at all, so the message must not point at one either.
+    expect(() => parseCreateArgs(['my-site', '--no-analytics'])).toThrow(/cannot be turned off/);
   });
 
   it('rejects typos, a missing name, and two names', () => {
