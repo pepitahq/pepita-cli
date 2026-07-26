@@ -9,7 +9,15 @@
  *   pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>]
  */
 import { writeFile } from 'node:fs/promises';
-import { FORM_RECORDS_PAGE, resolveFormBranch, sourceTotal, toCsv, type FormRecord } from '@pepitahq/shared';
+import {
+  FORM_COLLECTIONS_CAP,
+  FORM_RECORDS_PAGE,
+  resolveFormBranch,
+  sourceTotal,
+  submittedAtIso,
+  toCsv,
+  type FormRecord
+} from '@pepitahq/shared';
 // `PepitaApi` comes from ../api.js like the neighbouring commands do, not from
 // the shared package directly — same type, one import style on this surface.
 import { api, UsageError, type PepitaApi } from '../api.js';
@@ -35,6 +43,13 @@ export function parseFormArgs(args: string[], opts: { needName?: boolean } = {})
   if (!site) throw new UsageError(`${USAGE}\n(--site <slug> is required)`);
   const live = args.includes('--live');
   const preview = flagValue(args, '--preview');
+  // `flagValue` answers undefined both for "not passed" and for "passed with no
+  // value" (`--preview --csv out.csv`). Undefined means the EDITOR source, so
+  // the second case would quietly hand back test rows instead of the preview
+  // link's submissions — and with --live also present, live would win the check
+  // below that exists precisely to stop a silent winner.
+  if (args.includes('--preview') && !preview)
+    throw new UsageError('--preview needs a preview name, e.g. --preview k4t9');
   // Surfaced here as well as in the resolver: the CLI can say it in usage terms.
   if (live && preview) throw new UsageError('pass --live or --preview, not both');
   const name = positional(args, VALUE_FLAGS);
@@ -45,29 +60,54 @@ export function parseFormArgs(args: string[], opts: { needName?: boolean } = {})
 export async function runList(client: PepitaApi, site: string): Promise<string> {
   const cols = await client.listFormCollections(site);
   if (!cols.length) return 'No form submissions yet.';
-  return cols.map((c) => `${c.name}  ${c.count}`).join('\n');
+  const lines = cols.map((c) => `${c.name}  ${c.count}`);
+  // The count sums every source; `form get` reads one, and defaults to the
+  // editor's. Without this line a founder reads "contact 40", asks for them,
+  // and is told there are none.
+  lines.push(
+    '',
+    'Counts cover every source together (live site, editor, preview links).',
+    "`form get` reads one source, and without --live/--preview it reads the editor's test submissions."
+  );
+  if (cols.length === FORM_COLLECTIONS_CAP)
+    lines.push(`Listing is capped at ${FORM_COLLECTIONS_CAP} forms — there may be more.`);
+  return lines.join('\n');
 }
 
 /** Walk the cursor. `max` caps the read; omit it to take everything.
  *  `total` is THIS SOURCE's count, off the first page's `branches`. */
 async function readRecords(client: PepitaApi, site: string, name: string, branch: string, max?: number) {
   const records: FormRecord[] = [];
-  let fields: string[] | null = null;
+  let fields: string[] = [];
   let total = 0;
+  // Loop position is tracked explicitly, never inferred from a nullable payload
+  // field: `fields` is null on any page but the first BY CONTRACT, so a first
+  // page that returned null would leave the sentinel unset, re-run this block on
+  // page two — where `branches` is null — and reset `total` to 0. A 0 total is
+  // exactly the value that switches the refuse-to-truncate gate off.
+  let first = true;
   let cursor: string | undefined;
   for (;;) {
     const page = await client.getFormRecords(site, name, { branch, cursor });
-    if (fields === null) {
-      fields = page.fields;
+    if (first) {
+      fields = page.fields ?? [];
       total = sourceTotal(page.branches ?? [], branch);
+      first = false;
     }
     records.push(...page.records);
     if (!page.nextCursor) break;
     if (max !== undefined && records.length >= max) break;
+    // "No cap on records" is not "no cap on iterations": a cursor that comes
+    // back unchanged (a replayed response, a server bug) would spin forever,
+    // holding every record in memory and writing nothing. Say what happened.
+    if (page.nextCursor === cursor)
+      throw new UsageError(
+        `The server stopped advancing after ${records.length} records — nothing was written. Try again.`
+      );
     cursor = page.nextCursor;
   }
   return {
-    fields: fields ?? [],
+    fields,
     total,
     records: max === undefined ? records : records.slice(0, max)
   };
@@ -110,7 +150,7 @@ export async function runGet(
   if (!records.length) return `No records for "${a.name}".`;
   return records
     .map((r) => {
-      const when = new Date(r.createdAt).toISOString();
+      const when = submittedAtIso(r.createdAt);
       const pairs = fields
         .filter((f) => r.data[f] !== undefined && r.data[f] !== null && r.data[f] !== '')
         .map((f) => `${f}=${typeof r.data[f] === 'string' ? r.data[f] : JSON.stringify(r.data[f])}`);
