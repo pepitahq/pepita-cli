@@ -18,6 +18,7 @@ Usage: pepita <command> [args]
   status [slug]               Balance + your sites; with a slug, its pending changes
   asset <sub> --site <slug>   Video assets: add <file> | list | info <id> | rename <id> <name> | rm <id> | pull <id>
   template <sub> --site <slug>   Confirmation-email templates: list | read <form-name> | put <form-name> | rm <form-name>
+  form <sub> --site <slug>   Form submissions: list | get <form-name> [--live] [--preview n] [--csv path]
 `;
 
 const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<void> | void }>> = {
@@ -34,7 +35,8 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   delete: () => import('./commands/delete.js'),
   status: () => import('./commands/status.js'),
   asset: () => import('./commands/asset.js'),
-  template: () => import('./commands/template.js')
+  template: () => import('./commands/template.js'),
+  form: () => import('./commands/form.js')
 };
 
 async function main() {

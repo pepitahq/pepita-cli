@@ -45,6 +45,7 @@ pepita publish my-site                # put the current site live
 | `delete <slug> [--download-snapshot] [--yes]` | Permanently delete a site (optionally snapshot to `/tmp` first) |
 | `asset <sub> --site <slug>` | Video assets: `add <file>` (upload + transcode), `list`, `info <id>`, `rename <id> <new name>` (label only — URLs keep working), `rm <id>`, `pull <id>` (download the original) |
 | `template <sub> --site <slug>` | Confirmation-email templates, one per form: `list`, `read <form-name> [--out body.html]`, `put <form-name> [--file body.html] [--subject s] [--from local] [--from-name name]` (upsert by form name — envelope-only puts re-send the current body), `rm <form-name> [--yes]` |
+| `form <sub> --site <slug>` | Form submissions: `list` (every collection + its count), `get <form-name> [--live] [--preview <name>] [--csv <path>]` (without `--live`/`--preview` you get the editor's own test submissions; over 100 records without `--csv` errors naming the count instead of silently truncating — pass `--csv <path>` to export every record to a file) |
 
 Videos never live in the site's file tree — `apply` refuses video files and
 points you at `asset add`, which uploads to the asset library and transcodes
