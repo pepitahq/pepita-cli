@@ -73,6 +73,20 @@ describe('parseFormArgs', () => {
   it('leaves csv undefined when the flag is absent', () => {
     expect(parseFormArgs(['contact', '--site', 's']).csv).toBeUndefined();
   });
+
+  it('reads --xlsx as a path', () => {
+    expect(parseFormArgs(['contact', '--site', 's', '--xlsx', 'out.xlsx']).xlsx).toBe('out.xlsx');
+  });
+
+  it('does not mistake the --xlsx path for the form name', () => {
+    const a = parseFormArgs(['--site', 's', '--xlsx', 'out.xlsx', 'contact']);
+    expect(a.name).toBe('contact');
+    expect(a.xlsx).toBe('out.xlsx');
+  });
+
+  it('leaves xlsx undefined when the flag is absent', () => {
+    expect(parseFormArgs(['contact', '--site', 's']).xlsx).toBeUndefined();
+  });
 });
 
 describe('runList', () => {
@@ -161,33 +175,6 @@ describe('runGet', () => {
     expect(out.split('\n')).toHaveLength(3);
   });
 
-  it('with --csv it walks every page, past the limit', async () => {
-    let calls = 0;
-    const api = fakeApi({
-      getFormRecords: async () => {
-        calls++;
-        return {
-          fields: ['email'],
-          branches: [{ branch: 'main', count: 150 }],
-          records: Array.from({ length: 50 }, (_, i) => rec(i)),
-          // A distinct cursor per page, as a keyset pager returns — a repeated
-          // one is the stall the loop guard refuses.
-          nextCursor: calls < 3 ? `page${calls}` : null
-        };
-      }
-    });
-    const written: Record<string, string> = {};
-    await runGet(
-      api,
-      { site: 's', name: 'contact', live: true, preview: undefined, csv: '/tmp/out.csv' },
-      async (p, c) => {
-        written[p] = c;
-      }
-    );
-    expect(calls).toBe(3);
-    expect(written['/tmp/out.csv'].split('\n')).toHaveLength(151); // header + 150
-  });
-
   it('prints the stored timestamp as a present-day instant, not January 1970', async () => {
     const out = await runGet(fakeApi(), {
       site: 's',
@@ -224,6 +211,8 @@ describe('runGet', () => {
 
   // "No cap on records" is not "no cap on iterations": an unchanged cursor
   // would spin forever, holding everything in memory and writing nothing.
+  // (Exercised on the plain text path — --csv/--xlsx no longer walk pages
+  // here at all, see form-export.test.ts.)
   it('stops with an error instead of looping when the cursor does not advance', async () => {
     let calls = 0;
     const api = fakeApi({
@@ -238,32 +227,8 @@ describe('runGet', () => {
       }
     });
     await expect(
-      runGet(
-        api,
-        { site: 's', name: 'contact', live: true, preview: undefined, csv: '/tmp/x.csv' },
-        async () => {}
-      )
+      runGet(api, { site: 's', name: 'contact', live: true, preview: undefined, csv: undefined })
     ).rejects.toThrow(/stopped advancing/i);
     expect(calls).toBe(2);
-  });
-
-  it('writes a header even when the form is empty, so the file is still a table', async () => {
-    const api = fakeApi({
-      getFormRecords: async () => ({
-        fields: ['email'],
-        branches: [],
-        records: [],
-        nextCursor: null
-      })
-    });
-    const written: Record<string, string> = {};
-    await runGet(
-      api,
-      { site: 's', name: 'contact', live: true, preview: undefined, csv: '/tmp/e.csv' },
-      async (p, c) => {
-        written[p] = c;
-      }
-    );
-    expect(written['/tmp/e.csv']).toBe('submitted_at,email');
   });
 });

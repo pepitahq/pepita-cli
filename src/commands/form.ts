@@ -6,7 +6,7 @@
  * with the word "branch", which is storage vocabulary.
  *
  *   pepita form list --site <slug>
- *   pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>]
+ *   pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>]
  */
 import { writeFile } from 'node:fs/promises';
 import {
@@ -15,7 +15,6 @@ import {
   resolveFormBranch,
   sourceTotal,
   submittedAtIso,
-  toCsv,
   type FormRecord
 } from '@pepitahq/shared';
 // `PepitaApi` comes from ../api.js like the neighbouring commands do, not from
@@ -25,10 +24,10 @@ import { flagValue, positional } from './asset.js';
 
 const USAGE = `usage:
   pepita form list --site <slug>
-  pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>]`;
+  pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>]`;
 
 // `positional` takes an ARRAY, not a Set — match `template.ts`, which ships.
-const VALUE_FLAGS = ['--site', '--preview', '--csv'];
+const VALUE_FLAGS = ['--site', '--preview', '--csv', '--xlsx'];
 
 export interface FormArgs {
   site: string;
@@ -36,6 +35,7 @@ export interface FormArgs {
   live: boolean;
   preview?: string;
   csv?: string;
+  xlsx?: string;
 }
 
 export function parseFormArgs(args: string[], opts: { needName?: boolean } = {}): FormArgs {
@@ -54,7 +54,7 @@ export function parseFormArgs(args: string[], opts: { needName?: boolean } = {})
   if (live && preview) throw new UsageError('pass --live or --preview, not both');
   const name = positional(args, VALUE_FLAGS);
   if (opts.needName && !name) throw new UsageError(USAGE);
-  return { site, name, live, preview, csv: flagValue(args, '--csv') };
+  return { site, name, live, preview, csv: flagValue(args, '--csv'), xlsx: flagValue(args, '--xlsx') };
 }
 
 export async function runList(client: PepitaApi, site: string): Promise<string> {
@@ -113,20 +113,36 @@ async function readRecords(client: PepitaApi, site: string, name: string, branch
   };
 }
 
-type Writer = (path: string, contents: string) => Promise<void>;
+type BytesWriter = (path: string, bytes: Uint8Array) => Promise<void>;
 
 export async function runGet(
   client: PepitaApi,
-  a: { site: string; name: string; live: boolean; preview?: string; csv?: string },
-  write: Writer = (p, c) => writeFile(p, c, 'utf8')
+  a: { site: string; name: string; live: boolean; preview?: string; csv?: string; xlsx?: string },
+  writeBytes: BytesWriter = (p, b) => writeFile(p, b)
 ): Promise<string> {
   const branch = resolveFormBranch({ live: a.live, preview: a.preview });
 
-  if (a.csv) {
-    // No cap: half a CSV is not an export.
-    const { fields, records } = await readRecords(client, a.site, a.name, branch);
-    await write(a.csv, toCsv(fields, records));
-    return `${records.length} record${records.length === 1 ? '' : 's'} → ${a.csv}`;
+  // Naming both, not silently picking one — a founder who gets the wrong file
+  // format would not notice until they opened it.
+  if (a.csv && a.xlsx)
+    throw new UsageError(`pass --csv or --xlsx, not both (got --csv ${a.csv} and --xlsx ${a.xlsx})`);
+
+  // BOTH formats go through the export endpoint. `--csv` used to walk the pages
+  // here and call toCsv locally; that is now the server's job, so the CSV a
+  // founder downloads in the editor and the one the CLI writes cannot diverge.
+  const outPath = a.xlsx ?? a.csv;
+  if (outPath) {
+    const format = a.xlsx ? 'xlsx' : 'csv';
+    const { bytes, truncated } = await client.exportFormRecords(a.site, a.name, {
+      format,
+      branch
+    });
+    await writeBytes(outPath, bytes);
+    // A truncated export is reported as partial, never as a plain success — a
+    // founder who cannot see they got half the data is worse off than one told.
+    return truncated
+      ? `Partial export → ${outPath} (the collection exceeded the server's export size limit, so the tail is missing)`
+      : `Exported → ${outPath}`;
   }
 
   // Read up to the limit FIRST — the first page carries this source's own count,
@@ -144,7 +160,7 @@ export async function runGet(
   // the data is worse off than one who is told to pass a flag.
   if (total > FORM_RECORDS_PAGE)
     throw new UsageError(
-      `${total} records — more than ${FORM_RECORDS_PAGE}. Pass --csv <path> to export them all.`
+      `${total} records — more than ${FORM_RECORDS_PAGE}. Pass --csv <path> or --xlsx <path> to export them all.`
     );
 
   if (!records.length) return `No records for "${a.name}".`;
@@ -169,7 +185,16 @@ export async function run(args: string[]): Promise<void> {
   }
   if (sub === 'get') {
     const a = parseFormArgs(rest, { needName: true });
-    console.log(await runGet(client, { site: a.site, name: a.name!, live: a.live, preview: a.preview, csv: a.csv }));
+    console.log(
+      await runGet(client, {
+        site: a.site,
+        name: a.name!,
+        live: a.live,
+        preview: a.preview,
+        csv: a.csv,
+        xlsx: a.xlsx
+      })
+    );
     return;
   }
   throw new UsageError(USAGE);
