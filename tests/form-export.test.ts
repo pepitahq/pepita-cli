@@ -43,6 +43,25 @@ describe('runGet — export formats', () => {
     expect(calledWith).toMatchObject({ format: 'csv' });
   });
 
+  // The escape hatch for a collection too wide for xlsx/csv (`form_fields_too_wide`)
+  // — json has no columns to merge, so it must route through the same export call.
+  test('--json goes through the export endpoint with format json', async () => {
+    let calledWith: unknown = null;
+    const client = fakeClient({
+      exportFormRecords: async (_s: string, _n: string, o: unknown) => {
+        calledWith = o;
+        return { bytes: new TextEncoder().encode('[]'), truncated: false };
+      }
+    });
+    const msg = await runGet(
+      client,
+      { site: 's', name: 'contact', live: true, json: 'out.json' },
+      async () => {}
+    );
+    expect(calledWith).toMatchObject({ format: 'json' });
+    expect(msg).toContain('out.json');
+  });
+
   test('a truncated export says so rather than reporting success', async () => {
     const client = fakeClient({
       exportFormRecords: async () => ({ bytes: new Uint8Array([1]), truncated: true })
@@ -66,6 +85,19 @@ describe('runGet — export formats', () => {
         async () => {}
       )
     ).rejects.toThrow(/out\.csv[\s\S]*out\.xlsx|out\.xlsx[\s\S]*out\.csv/);
+  });
+
+  // Same guard, the other pair — the error must name whichever two flags were
+  // actually passed, not a hardcoded --csv/--xlsx pair.
+  test('--json and --xlsx together throw, naming both', async () => {
+    const client = fakeClient();
+    await expect(
+      runGet(
+        client,
+        { site: 's', name: 'contact', live: true, json: 'out.json', xlsx: 'out.xlsx' },
+        async () => {}
+      )
+    ).rejects.toThrow(/out\.json[\s\S]*out\.xlsx|out\.xlsx[\s\S]*out\.json/);
   });
 
   test('the branch/source is forwarded to the export call', async () => {

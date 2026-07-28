@@ -6,7 +6,7 @@
  * with the word "branch", which is storage vocabulary.
  *
  *   pepita form list --site <slug>
- *   pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>]
+ *   pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>] [--json <path>]
  */
 import { writeFile } from 'node:fs/promises';
 import {
@@ -22,10 +22,10 @@ import { flagValue, positional } from './asset.js';
 
 const USAGE = `usage:
   pepita form list --site <slug>
-  pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>]`;
+  pepita form get <form-name> --site <slug> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>] [--json <path>]`;
 
 // `positional` takes an ARRAY, not a Set — match `template.ts`, which ships.
-const VALUE_FLAGS = ['--site', '--preview', '--csv', '--xlsx'];
+const VALUE_FLAGS = ['--site', '--preview', '--csv', '--xlsx', '--json'];
 
 export interface FormArgs {
   site: string;
@@ -34,6 +34,7 @@ export interface FormArgs {
   preview?: string;
   csv?: string;
   xlsx?: string;
+  json?: string;
 }
 
 export function parseFormArgs(args: string[], opts: { needName?: boolean } = {}): FormArgs {
@@ -52,7 +53,15 @@ export function parseFormArgs(args: string[], opts: { needName?: boolean } = {})
   if (live && preview) throw new UsageError('pass --live or --preview, not both');
   const name = positional(args, VALUE_FLAGS);
   if (opts.needName && !name) throw new UsageError(USAGE);
-  return { site, name, live, preview, csv: flagValue(args, '--csv'), xlsx: flagValue(args, '--xlsx') };
+  return {
+    site,
+    name,
+    live,
+    preview,
+    csv: flagValue(args, '--csv'),
+    xlsx: flagValue(args, '--xlsx'),
+    json: flagValue(args, '--json')
+  };
 }
 
 export async function runList(client: PepitaApi, site: string): Promise<string> {
@@ -87,22 +96,33 @@ type BytesWriter = (path: string, bytes: Uint8Array) => Promise<void>;
 
 export async function runGet(
   client: PepitaApi,
-  a: { site: string; name: string; live: boolean; preview?: string; csv?: string; xlsx?: string },
+  a: { site: string; name: string; live: boolean; preview?: string; csv?: string; xlsx?: string; json?: string },
   writeBytes: BytesWriter = (p, b) => writeFile(p, b)
 ): Promise<string> {
   const branch = resolveFormBranch({ live: a.live, preview: a.preview });
 
-  // Naming both, not silently picking one — a founder who gets the wrong file
-  // format would not notice until they opened it.
-  if (a.csv && a.xlsx)
-    throw new UsageError(`pass --csv or --xlsx, not both (got --csv ${a.csv} and --xlsx ${a.xlsx})`);
+  // Naming exactly the two that were passed, not silently picking one — a
+  // founder who gets the wrong file format would not notice until they
+  // opened it. Three mutually exclusive flags, so this can only ever have
+  // two names to report.
+  const formatFlags: Array<['--csv' | '--xlsx' | '--json', string | undefined]> = [
+    ['--csv', a.csv],
+    ['--xlsx', a.xlsx],
+    ['--json', a.json]
+  ];
+  const passed = formatFlags.filter(([, v]) => v !== undefined);
+  if (passed.length > 1) {
+    const [[flagA, valueA], [flagB, valueB]] = passed;
+    throw new UsageError(`pass one of --csv, --xlsx or --json, not both (got ${flagA} ${valueA} and ${flagB} ${valueB})`);
+  }
 
-  // BOTH formats go through the export endpoint. `--csv` used to walk the pages
-  // here and call toCsv locally; that is now the server's job, so the CSV a
-  // founder downloads in the editor and the one the CLI writes cannot diverge.
-  const outPath = a.xlsx ?? a.csv;
+  // All three formats go through the export endpoint. `--csv` used to walk
+  // the pages here and call toCsv locally; that is now the server's job, so
+  // the CSV a founder downloads in the editor and the one the CLI writes
+  // cannot diverge.
+  const outPath = a.xlsx ?? a.csv ?? a.json;
   if (outPath) {
-    const format = a.xlsx ? 'xlsx' : 'csv';
+    const format = a.xlsx ? 'xlsx' : a.csv ? 'csv' : 'json';
     const { bytes, truncated } = await client.exportFormRecords(a.site, a.name, {
       format,
       branch
@@ -149,7 +169,8 @@ export async function run(args: string[]): Promise<void> {
         live: a.live,
         preview: a.preview,
         csv: a.csv,
-        xlsx: a.xlsx
+        xlsx: a.xlsx,
+        json: a.json
       })
     );
     return;

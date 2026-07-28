@@ -88,6 +88,22 @@ describe('parseFormArgs', () => {
   it('leaves xlsx undefined when the flag is absent', () => {
     expect(parseFormArgs(['contact', '--site', 's']).xlsx).toBeUndefined();
   });
+
+  it('reads --json as a path', () => {
+    expect(parseFormArgs(['contact', '--site', 's', '--json', 'out.json']).json).toBe('out.json');
+  });
+
+  // --json's value is a positional-looking token: if it were not on VALUE_FLAGS
+  // the form name would resolve to the file path.
+  it('does not mistake the --json path for the form name', () => {
+    const a = parseFormArgs(['--site', 's', '--json', 'out.json', 'contact']);
+    expect(a.name).toBe('contact');
+    expect(a.json).toBe('out.json');
+  });
+
+  it('leaves json undefined when the flag is absent', () => {
+    expect(parseFormArgs(['contact', '--site', 's']).json).toBeUndefined();
+  });
 });
 
 describe('runList', () => {
