@@ -1,4 +1,5 @@
-import { AuthError, UsageError, PepitaHttpError, authErrorMessage } from './api.js';
+import { AuthError, UsageError, PepitaHttpError, authErrorMessage, lastUpgradeAdvised } from './api.js';
+import { VERSION } from './version.js';
 
 const HELP = `pepita — command line for pepita sites
 
@@ -54,9 +55,30 @@ async function main() {
   }
   const mod = await loader();
   await mod.run(args);
+  noticeUpgrade();
+}
+
+/**
+ * One line on stderr when the server says this binary is behind the API.
+ *
+ * After the command, not before or during: a single notice covers the whole run
+ * however many requests it made, and stderr keeps it out of anything the user is
+ * piping. Warn-only by design — a version mismatch never blocks a command, so
+ * this cannot be the reason something failed.
+ */
+function noticeUpgrade(): void {
+  const min = lastUpgradeAdvised();
+  if (!min) return;
+  console.error(
+    `pepita: this CLI is ${VERSION}, but the server now expects ${min} or newer — run \`npm i -g @pepitahq/cli\` to update.`
+  );
 }
 
 main().catch((err) => {
+  // The notice belongs on the failure path too: an out-of-date client is a
+  // plausible CAUSE of the error the user is looking at, so saying nothing here
+  // is exactly when it is least helpful.
+  noticeUpgrade();
   if (err instanceof UsageError) {
     // Plain usage line — no "Error:" prefix, no stack.
     console.error(err.message);

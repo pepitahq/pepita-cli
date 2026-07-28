@@ -45,7 +45,7 @@ pepita publish my-site                # put the current site live
 | `delete <slug> [--download-snapshot] [--yes]` | Permanently delete a site (optionally snapshot to `/tmp` first) |
 | `asset <sub> --site <slug>` | Video assets: `add <file>` (upload + transcode), `list`, `info <id>`, `rename <id> <new name>` (label only — URLs keep working), `rm <id>`, `pull <id>` (download the original) |
 | `template <sub> --site <slug>` | Confirmation-email templates, one per form: `list`, `read <form-name> [--out body.html]`, `put <form-name> [--file body.html] [--subject s] [--from local] [--from-name name]` (upsert by form name — envelope-only puts re-send the current body), `rm <form-name> [--yes]` |
-| `form <sub> --site <slug>` | Form submissions: `list` (every collection + its count), `get <form-name> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>]` (without `--live`/`--preview` you get the editor's own test submissions; over 100 records without `--csv`/`--xlsx` errors naming the count instead of silently truncating — pass one of them to export every row of that source to a file. Both flags go through the same server export the editor's download button uses, so the file the CLI writes and the one a founder downloads can't diverge; if the collection is too large even for that, the export is partial and the CLI says so rather than reporting success) |
+| `form <sub> --site <slug>` | Form submissions: `list` (every collection + its count), `get <form-name> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>]` (without `--live`/`--preview` you get the editor's own test submissions). `get` prints EVERY record of that source — a form holds at most 1000 entries, so there is no cap and no refusal. `--csv`/`--xlsx` write a file through the same server export the editor's download button uses, so the file the CLI writes and the one a founder downloads can't diverge; if a collection is too large even for that, the export is partial and the CLI says so rather than reporting success. A form whose entries carry more than 50 different field names can't be shown as a table at all — the CLI passes the server's message through, which tells you to download the raw JSON. |
 
 Videos never live in the site's file tree — `apply` refuses video files and
 points you at `asset add`, which uploads to the asset library and transcodes
@@ -57,6 +57,10 @@ source footage** (per-second pro-rata), charged from your pepita balance when
 you upload — `pepita status` shows what's left. Only **mp4, mov and m4v**
 files are accepted, and by content, not by extension: a WebM renamed `.mp4`
 is rejected before any upload starts.
+
+If the server has moved past this CLI's version, every command prints one line
+on stderr telling you to update. It is a notice, never a block — nothing stops
+working because of it.
 
 Templates live outside the site's file tree and are matched to a form by name
 (the form's `_form` value). The confirmation email's recipient is always the

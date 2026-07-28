@@ -15,11 +15,12 @@ const rec = (i: number) => ({
 function fakeApi(over: Record<string, unknown> = {}) {
   return {
     listFormCollections: async () => [{ name: 'contact', count: 2, lastAt: 2, firstAt: 1 }],
+    // The whole collection, every source at once — the shape the endpoint now
+    // returns. Two sources on purpose: filtering is the CLI's job now, so a fake
+    // with only one source could not catch a filter that does nothing.
     getFormRecords: async () => ({
       fields: ['email'],
-      branches: [{ branch: 'editor', count: 1 }],
-      records: [rec(1)],
-      nextCursor: null
+      records: [rec(1), { ...rec(2), branch: 'editor' }]
     }),
     ...over
   } as never;
@@ -122,60 +123,8 @@ describe('runList', () => {
 
 describe('runGet', () => {
   it('reads the editor source by default', async () => {
-    let branch = '';
-    const api = fakeApi({
-      getFormRecords: async (_s: string, _n: string, o: { branch: string }) => {
-        branch = o.branch;
-        return {
-          fields: ['email'],
-          branches: [{ branch: 'editor', count: 1 }],
-          records: [rec(1)],
-          nextCursor: null
-        };
-      }
-    });
-    await runGet(api, { site: 's', name: 'contact', live: false, preview: undefined, csv: undefined });
-    expect(branch).toBe('editor');
-  });
-
-  it('refuses to truncate: over the limit without --csv it errors and names the count', async () => {
-    const api = fakeApi({
-      getFormRecords: async () => ({
-        fields: ['email'],
-        branches: [{ branch: 'main', count: 250 }],
-        records: Array.from({ length: 50 }, (_, i) => rec(i)),
-        nextCursor: 'more'
-      })
-    });
-    await expect(
-      runGet(api, { site: 's', name: 'contact', live: true, preview: undefined, csv: undefined })
-    ).rejects.toThrow(/250[\s\S]*--csv/);
-  });
-
-  it('does NOT refuse a small source just because another one is large', async () => {
-    // 300 live rows, 3 editor rows; the default read is the editor source.
-    const api = fakeApi({
-      getFormRecords: async () => ({
-        fields: ['email'],
-        branches: [
-          { branch: 'main', count: 300 },
-          { branch: 'editor', count: 3 }
-        ],
-        records: [rec(1), rec(2), rec(3)],
-        nextCursor: null
-      })
-    });
-    const out = await runGet(api, {
-      site: 's',
-      name: 'contact',
-      live: false,
-      preview: undefined,
-      csv: undefined
-    });
-    expect(out.split('\n')).toHaveLength(3);
-  });
-
-  it('prints the stored timestamp as a present-day instant, not January 1970', async () => {
+    // Unchanged guarantee, new mechanism: the source is no longer a query
+    // parameter, so this now asserts the LOCAL filter picked the right rows.
     const out = await runGet(fakeApi(), {
       site: 's',
       name: 'contact',
@@ -183,52 +132,81 @@ describe('runGet', () => {
       preview: undefined,
       csv: undefined
     });
-    expect(out).toContain('2026-07-25T17:20:01.000Z'); // rec(1) is SECS + 1
-    expect(out).not.toContain('1970');
+    expect(out).toContain('p2@example.com'); // the editor row
+    expect(out).not.toContain('p1@example.com'); // the live row
   });
 
-  // `fields` is null on every page but the first, so it cannot double as the
-  // "am I on page one?" sentinel: a first page carrying null would re-run the
-  // block on page two, where `branches` is null, resetting total to 0 — and a
-  // 0 total switches the refuse-to-truncate gate off entirely.
-  it('still refuses to truncate when the first page carries null fields', async () => {
+  it('reads the live source with --live', async () => {
+    const out = await runGet(fakeApi(), {
+      site: 's',
+      name: 'contact',
+      live: true,
+      preview: undefined,
+      csv: undefined
+    });
+    expect(out).toContain('p1@example.com');
+    expect(out).not.toContain('p2@example.com');
+  });
+
+  it('fetches exactly once — there is no paging left', async () => {
     let calls = 0;
     const api = fakeApi({
       getFormRecords: async () => {
         calls++;
-        return {
-          fields: null,
-          branches: calls === 1 ? [{ branch: 'main', count: 250 }] : null,
-          records: Array.from({ length: 50 }, (_, i) => rec(i)),
-          nextCursor: `page${calls}`
-        };
+        return { fields: ['email'], records: [rec(1)] };
       }
     });
-    await expect(
-      runGet(api, { site: 's', name: 'contact', live: true, preview: undefined, csv: undefined })
-    ).rejects.toThrow(/250[\s\S]*--csv/);
+    await runGet(api, { site: 's', name: 'contact', live: true, preview: undefined, csv: undefined });
+    expect(calls).toBe(1);
   });
 
-  // "No cap on records" is not "no cap on iterations": an unchanged cursor
-  // would spin forever, holding everything in memory and writing nothing.
-  // (Exercised on the plain text path — --csv/--xlsx no longer walk pages
-  // here at all, see form-export.test.ts.)
-  it('stops with an error instead of looping when the cursor does not advance', async () => {
-    let calls = 0;
+  it('prints EVERY record, with no cap and no refusal', async () => {
+    // The old FORM_RECORDS_PAGE gate refused rather than truncate, because a
+    // collection could be arbitrarily large. Ingest now caps a form at 1000, and
+    // a terminal has room for 1000 lines — so printing everything IS the
+    // behaviour, and a refusal would be the bug.
+    const many = Array.from({ length: 150 }, (_, i) => rec(i));
     const api = fakeApi({
-      getFormRecords: async () => {
-        calls++;
-        return {
-          fields: ['email'],
-          branches: [{ branch: 'main', count: 999 }],
-          records: [rec(calls)],
-          nextCursor: 'stuck'
-        };
-      }
+      getFormRecords: async () => ({ fields: ['email'], records: many })
     });
-    await expect(
-      runGet(api, { site: 's', name: 'contact', live: true, preview: undefined, csv: undefined })
-    ).rejects.toThrow(/stopped advancing/i);
-    expect(calls).toBe(2);
+    const out = await runGet(api, {
+      site: 's',
+      name: 'contact',
+      live: true,
+      preview: undefined,
+      csv: undefined
+    });
+    expect(out.split('\n')).toHaveLength(150);
+    expect(out).toContain('p149@example.com');
+  });
+
+  it('says so plainly when this source has none', async () => {
+    const api = fakeApi({
+      getFormRecords: async () => ({ fields: ['email'], records: [rec(1)] })
+    });
+    // rec(1) is on 'main'; the default source is the editor.
+    const out = await runGet(api, {
+      site: 's',
+      name: 'contact',
+      live: false,
+      preview: undefined,
+      csv: undefined
+    });
+    expect(out).toMatch(/No records/i);
+  });
+
+  it('prints the stored timestamp as a present-day instant, not January 1970', async () => {
+    // createdAt is epoch SECONDS. `new Date(seconds)` does not fail — it yields
+    // a 1970 date, and every submission lands within twenty days of every other,
+    // so the column reads as plausible-but-wrong rather than broken.
+    const out = await runGet(fakeApi(), {
+      site: 's',
+      name: 'contact',
+      live: true,
+      preview: undefined,
+      csv: undefined
+    });
+    expect(out).toContain('2026-');
+    expect(out).not.toContain('1970-');
   });
 });

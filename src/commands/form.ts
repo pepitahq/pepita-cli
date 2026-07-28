@@ -11,11 +11,9 @@
 import { writeFile } from 'node:fs/promises';
 import {
   FORM_COLLECTIONS_CAP,
-  FORM_RECORDS_PAGE,
+  filterByBranch,
   resolveFormBranch,
-  sourceTotal,
   submittedAtIso,
-  type FormRecord
 } from '@pepitahq/shared';
 // `PepitaApi` comes from ../api.js like the neighbouring commands do, not from
 // the shared package directly — same type, one import style on this surface.
@@ -74,43 +72,15 @@ export async function runList(client: PepitaApi, site: string): Promise<string> 
   return lines.join('\n');
 }
 
-/** Walk the cursor. `max` caps the read; omit it to take everything.
- *  `total` is THIS SOURCE's count, off the first page's `branches`. */
-async function readRecords(client: PepitaApi, site: string, name: string, branch: string, max?: number) {
-  const records: FormRecord[] = [];
-  let fields: string[] = [];
-  let total = 0;
-  // Loop position is tracked explicitly, never inferred from a nullable payload
-  // field: `fields` is null on any page but the first BY CONTRACT, so a first
-  // page that returned null would leave the sentinel unset, re-run this block on
-  // page two — where `branches` is null — and reset `total` to 0. A 0 total is
-  // exactly the value that switches the refuse-to-truncate gate off.
-  let first = true;
-  let cursor: string | undefined;
-  for (;;) {
-    const page = await client.getFormRecords(site, name, { branch, cursor });
-    if (first) {
-      fields = page.fields ?? [];
-      total = sourceTotal(page.branches ?? [], branch);
-      first = false;
-    }
-    records.push(...page.records);
-    if (!page.nextCursor) break;
-    if (max !== undefined && records.length >= max) break;
-    // "No cap on records" is not "no cap on iterations": a cursor that comes
-    // back unchanged (a replayed response, a server bug) would spin forever,
-    // holding every record in memory and writing nothing. Say what happened.
-    if (page.nextCursor === cursor)
-      throw new UsageError(
-        `The server stopped advancing after ${records.length} records — nothing was written. Try again.`
-      );
-    cursor = page.nextCursor;
-  }
-  return {
-    fields,
-    total,
-    records: max === undefined ? records : records.slice(0, max)
-  };
+/** This source's records, out of the ONE response that carries them all.
+ *
+ *  There is no cursor and no page: ingest caps a form at 1000 records of 1000
+ *  characters, so the server hands over the whole collection and the source is a
+ *  local filter. The loop, the replayed-cursor guard and the `max` cap that used
+ *  to live here all went with it. */
+async function readRecords(client: PepitaApi, site: string, name: string, branch: string) {
+  const { fields, records } = await client.getFormRecords(site, name);
+  return { fields, records: filterByBranch(records, branch) };
 }
 
 type BytesWriter = (path: string, bytes: Uint8Array) => Promise<void>;
@@ -145,24 +115,11 @@ export async function runGet(
       : `Exported → ${outPath}`;
   }
 
-  // Read up to the limit FIRST — the first page carries this source's own count,
-  // and gating on the collection list's cross-branch count would refuse a
-  // three-row editor read because the live site holds three hundred.
-  const { fields, total, records } = await readRecords(
-    client,
-    a.site,
-    a.name,
-    branch,
-    FORM_RECORDS_PAGE
-  );
+  const { fields, records } = await readRecords(client, a.site, a.name, branch);
 
-  // Refuse rather than truncate. A founder who cannot see that they got half
-  // the data is worse off than one who is told to pass a flag.
-  if (total > FORM_RECORDS_PAGE)
-    throw new UsageError(
-      `${total} records — more than ${FORM_RECORDS_PAGE}. Pass --csv <path> or --xlsx <path> to export them all.`
-    );
-
+  // Every matching record, no cap and no refusal. The old FORM_RECORDS_PAGE gate
+  // existed because a collection could be arbitrarily large; ingest now bounds
+  // it at 1000, and a terminal has room for 1000 lines.
   if (!records.length) return `No records for "${a.name}".`;
   return records
     .map((r) => {

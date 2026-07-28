@@ -1,4 +1,5 @@
 import { apiBase, loadConfig } from './config.js';
+import { CLIENT_ID } from './version.js';
 import { makePepitaApi, PepitaHttpError, type PepitaApi } from '@pepitahq/shared';
 
 export { PepitaHttpError };
@@ -11,8 +12,26 @@ export class UsageError extends Error {}
 
 /** The single pepita API client (the same one the MCP uses, from @pepitahq/shared),
  *  built from the stored config. Auth endpoints (login/logout) still use apiFetch. */
+/** The api client for this process, built once so the upgrade advice the server
+ *  sends on any request survives to the end of the command. */
+let cached: PepitaApi | null = null;
+
+/** The minimum version the server last advised, or null. Read after the command
+ *  runs — see `noticeUpgrade` in index.ts. */
+export function lastUpgradeAdvised(): string | null {
+  return cached?.upgradeAdvised() ?? null;
+}
+
 export function api(): PepitaApi {
-  return makePepitaApi({ apiBase: apiBase(), token: loadConfig().token ?? '' });
+  if (cached) return cached;
+  cached = makePepitaApi({
+    apiBase: apiBase(),
+    token: loadConfig().token ?? '',
+    // Identifies this published binary so the server can advise an upgrade when
+    // the API has moved past it. Warn-only — never blocks a command.
+    clientId: CLIENT_ID
+  });
+  return cached;
 }
 
 /** What to say about a 401. A stored token the server REJECTS is not the same
