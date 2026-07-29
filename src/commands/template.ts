@@ -6,9 +6,14 @@
  * The recipient is ALWAYS the submission's `email` field: the form must
  * contain an input named `email`, and no flag here (or anywhere) changes that.
  *
+ * A `put` writes the WORKING COPY: it does not change the emails people receive
+ * until the template is saved (`template save`, or `put --save` in one shot, or
+ * the editor's Save button on the template's row).
+ *
  *   pepita template list --site <slug>
  *   pepita template read <form-name> --site <slug> [--out body.html]
- *   pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name]
+ *   pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
+ *   pepita template save <form-name> --site <slug>
  *   pepita template rm   <form-name> --site <slug> [--yes]
  */
 import { readFile, writeFile } from 'node:fs/promises';
@@ -19,8 +24,11 @@ import { flagValue, positional } from './asset.js';
 const USAGE = `usage:
   pepita template list --site <slug>
   pepita template read <form-name> --site <slug> [--out body.html]
-  pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name]
-  pepita template rm   <form-name> --site <slug> [--yes]`;
+  pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
+  pepita template save <form-name> --site <slug>
+  pepita template rm   <form-name> --site <slug> [--yes]
+
+put writes the working copy; save makes it the version people receive.`;
 
 export interface TemplateArgs {
   site: string;
@@ -31,6 +39,10 @@ export interface TemplateArgs {
   from?: string;
   fromName?: string;
   yes: boolean;
+  /** `put --save` — write and save in one step. The ordinary one-shot case ("I
+   *  have a file, make it the version in use"), and why a bare `put` followed by
+   *  a bare `save` would read as two words for the same thing. */
+  save: boolean;
 }
 
 /** Every flag here that takes a value — `positional` needs them so it doesn't
@@ -58,7 +70,8 @@ export function parseTemplateArgs(args: string[], opts: { needName?: boolean } =
     subject: flagValue(args, '--subject'),
     from: flagValue(args, '--from'),
     fromName: flagValue(args, '--from-name'),
-    yes: args.includes('--yes')
+    yes: args.includes('--yes'),
+    save: args.includes('--save')
   };
 }
 
@@ -177,7 +190,24 @@ export async function runPut(client: PepitaApi, input: PutInput): Promise<string
     throw new Error(
       `The template changed while this command ran (current subject: "${r.conflict.currentSubject}") — re-run to retry against the new version.`
     );
-  return `Updated the "${input.name}" template (sha ${r.sha}).`;
+  return [
+    `Updated the "${input.name}" template's working copy.`,
+    'It does not change the emails people receive yet —',
+    `run \`pepita template save ${input.name} --site ${input.site}\` (or use --save) to make it the version in use.`
+  ].join(' ');
+}
+
+/** Promote the working copy — the CLI's Save. Nothing pending is reported, not
+ *  raised: re-running `save` after a save is a reasonable thing for a person to
+ *  do, and it has not failed at anything. */
+export async function runSave(client: PepitaApi, site: string, name: string): Promise<string> {
+  const { all, hit } = await byName(client, site, name);
+  if (!hit) throw noTemplate(name, all);
+  const r = await client.saveTemplate(site, hit.id);
+  if (r.ok) return `Saved the "${name}" template — it is now the version people receive.`;
+  if (r.reason === 'nothing-to-save')
+    return `The "${name}" template has no unsaved edits — the version people receive is already current.`;
+  throw new Error(`Could not save the "${name}" template: ${r.reason}`);
 }
 
 export async function runRm(client: PepitaApi, site: string, name: string): Promise<string> {
@@ -220,7 +250,19 @@ export async function run(args: string[]): Promise<void> {
     case 'put': {
       const a = parseTemplateArgs(rest);
       const html = a.file ? await readFile(a.file, 'utf8') : undefined;
-      console.log(await runPut(client, { site: a.site, name: a.name!, html, subject: a.subject, from: a.from, fromName: a.fromName }));
+      const put = await runPut(client, { site: a.site, name: a.name!, html, subject: a.subject, from: a.from, fromName: a.fromName });
+      if (!a.save) {
+        console.log(put);
+        return;
+      }
+      // --save: write then save. The put's own line is dropped — it ends in
+      // "run save to make it the version in use", which the next line just did.
+      console.log(await runSave(client, a.site, a.name!));
+      return;
+    }
+    case 'save': {
+      const a = parseTemplateArgs(rest);
+      console.log(await runSave(client, a.site, a.name!));
       return;
     }
     case 'rm': {
