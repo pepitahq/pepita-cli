@@ -18,7 +18,7 @@ Usage: pepita <command> [args]
   delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
   status [slug]               Balance + your sites; with a slug, its pending changes
   asset <sub> --site <slug>   Video assets: add <file> | list | info <id> | rename <id> <name> | rm <id> | pull <id>
-  template <sub> --site <slug>   Confirmation-email templates: list | read <form-name> | put <form-name> | rm <form-name>
+  template <sub> --site <slug>   Confirmation-email templates: list | read <form-name> | put <form-name> | save <form-name> | rm <form-name> | image add|list|rm
   form <sub> --site <slug>   Form submissions: list | get <form-name> [--live] [--preview n] [--csv path] [--xlsx path] [--json path]
 `;
 

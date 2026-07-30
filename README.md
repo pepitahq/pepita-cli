@@ -44,7 +44,7 @@ pepita publish my-site                # put the current site live
 | `status [slug]` | Without a slug: your balance + every site's URL. With one: that site's pending changes |
 | `delete <slug> [--download-snapshot] [--yes]` | Permanently delete a site (optionally snapshot to `/tmp` first) |
 | `asset <sub> --site <slug>` | Video assets: `add <file>` (upload + transcode), `list`, `info <id>`, `rename <id> <new name>` (label only — URLs keep working), `rm <id>`, `pull <id>` (download the original) |
-| `template <sub> --site <slug>` | Confirmation-email templates, one per form: `list`, `read <form-name> [--out body.html]`, `put <form-name> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]` (upsert by form name — envelope-only puts re-send the current body; a put writes the WORKING COPY, `--save` does both in one step), `save <form-name>` (makes the working copy the version people receive), `rm <form-name> [--yes]` |
+| `template <sub> --site <slug>` | Confirmation-email templates, one per form: `list`, `read <form-name> [--out body.html]`, `put <form-name> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]` (upsert by form name — envelope-only puts re-send the current body; a put writes the WORKING COPY, `--save` does both in one step), `save <form-name>` (makes the working copy the version people receive), `rm <form-name> [--yes]`, and the template's images: `image add <form-name> <file>`, `image list <form-name>` (name, size and the public URL of each), `image rm <form-name> <image-name>` |
 | `form <sub> --site <slug>` | Form submissions: `list` (every collection + its count), `get <form-name> [--live] [--preview <name>] [--csv <path>] [--xlsx <path>] [--json <path>]` (without `--live`/`--preview` you get the editor's own test submissions). `get` prints EVERY record of that source — a form holds at most 1000 entries, so there is no cap and no refusal. `--csv`/`--xlsx`/`--json` write a file through the same server export the editor's download button uses, so the file the CLI writes and the one a founder downloads can't diverge; if a collection is too large even for that, the export is partial and the CLI says so rather than reporting success. A form whose entries carry more than 50 different field names can't be shown as a table at all — the error message tells you to download the raw JSON, which `--json` does (the one format immune to the column-merge refusal, since it has no columns to merge). |
 
 Videos never live in the site's file tree — `apply` refuses video files and
@@ -66,6 +66,19 @@ Templates live outside the site's file tree and are matched to a form by name
 (the form's `_form` value). The confirmation email's recipient is always the
 submission's `email` field — there is no `--to-field` flag, on this command or
 anywhere else.
+
+A template can hold up to **10 images** (JPEG or PNG, 300 kB each, 1 MB per
+template). Reference one in the email body by its **bare filename** —
+`<img src="hero.jpg">` — and pepita turns it into a full URL when it sends;
+`image list` prints that URL if you need it elsewhere. Names are lowercased and
+tidied for you (`Logo.PNG` → `logo.png`), and the format is checked by content,
+not extension. Two things to know: **uploading an image is immediate, but the
+`<img>` that references it is part of the template body, so it only reaches
+recipients after `template save`** — and **`image rm` is immediate too**, so
+deleting one the saved body still names breaks that picture in the next email
+that goes out. Re-using a name is refused rather than overwritten: image URLs
+are cached for a long time, so the old picture could keep showing. Upload under
+a new name and point the template at it.
 
 ### What `pull` downloads
 

@@ -10,16 +10,28 @@
  * until the template is saved (`template save`, or `put --save` in one shot, or
  * the editor's Save button on the template's row).
  *
+ * A template's images are a separate surface (`template image …`): they sit
+ * beside the saved body in the same R2 folder, take no CAS sha (each name is
+ * a distinct object — nothing to conflict over), and `image list` prints the
+ * public URL itself rather than a `pull` command, because that URL *is* the
+ * download — any host serving the site answers it, regardless of custom
+ * domains.
+ *
  *   pepita template list --site <slug>
  *   pepita template read <form-name> --site <slug> [--out body.html]
  *   pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
  *   pepita template save <form-name> --site <slug>
  *   pepita template rm   <form-name> --site <slug> [--yes]
+ *   pepita template image add  <form-name> <file> --site <slug>
+ *   pepita template image list <form-name> --site <slug>
+ *   pepita template image rm   <form-name> <image-name> --site <slug>
  */
 import { readFile, writeFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { createInterface } from 'node:readline/promises';
+import { templateImageUrl, siteLiveHost } from '@pepitahq/shared';
 import { api, PepitaHttpError, UsageError, type PepitaApi } from '../api.js';
-import { flagValue, positional } from './asset.js';
+import { flagValue, positional, positionals, formatBytes } from './asset.js';
 
 const USAGE = `usage:
   pepita template list --site <slug>
@@ -27,8 +39,16 @@ const USAGE = `usage:
   pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
   pepita template save <form-name> --site <slug>
   pepita template rm   <form-name> --site <slug> [--yes]
+  pepita template image add  <form-name> <file> --site <slug>
+  pepita template image list <form-name> --site <slug>
+  pepita template image rm   <form-name> <image-name> --site <slug>
 
 put writes the working copy; save makes it the version people receive.`;
+
+const IMAGE_USAGE = `usage:
+  pepita template image add  <form-name> <file> --site <slug>
+  pepita template image list <form-name> --site <slug>
+  pepita template image rm   <form-name> <image-name> --site <slug>`;
 
 export interface TemplateArgs {
   site: string;
@@ -217,6 +237,77 @@ export async function runRm(client: PepitaApi, site: string, name: string): Prom
   return `Deleted the "${name}" template — confirmation emails for that form stop going out.`;
 }
 
+export async function runImageAdd(
+  client: PepitaApi,
+  site: string,
+  name: string,
+  file: string
+): Promise<string> {
+  const { all, hit } = await byName(client, site, name);
+  if (!hit) throw noTemplate(name, all);
+  const bytes = new Uint8Array(await readFile(file));
+  // A header can only carry ISO-8859-1, and setting one with anything else
+  // THROWS (an undici TypeError) — which would turn an illegal filename into a
+  // crash instead of a readable refusal. The server's name rule is a strict
+  // subset of ASCII, so such a name is illegal there too: substituting `?`
+  // (itself not in the allowed set) lets the SERVER produce that refusal,
+  // keeping the name rule written in exactly one place — the same guard the
+  // editor's browser upload applies, for the same reason.
+  const headerName = basename(file).replace(/[^\x20-\x7e]/g, '?');
+  const uploaded = await client.uploadTemplateImage(site, hit.id, headerName, bytes);
+  return `Uploaded ${uploaded.name} (${formatBytes(uploaded.size)}) -> ${templateImageUrl(siteLiveHost(site), hit.id, uploaded.name)}`;
+}
+
+export async function runImageList(client: PepitaApi, site: string, name: string): Promise<string> {
+  const { all, hit } = await byName(client, site, name);
+  if (!hit) throw noTemplate(name, all);
+  const images = await client.templateImages(site, hit.id);
+  if (!images.length) return `No images on the "${name}" template yet.`;
+  const host = siteLiveHost(site);
+  return images
+    .map((i) => `${i.name}  ${formatBytes(i.size)}  ${templateImageUrl(host, hit.id, i.name)}`)
+    .join('\n');
+}
+
+export async function runImageRm(
+  client: PepitaApi,
+  site: string,
+  name: string,
+  imageName: string
+): Promise<string> {
+  const { all, hit } = await byName(client, site, name);
+  if (!hit) throw noTemplate(name, all);
+  await client.removeTemplateImage(site, hit.id, imageName);
+  return `Deleted ${imageName} from the "${name}" template.`;
+}
+
+async function runImage(client: PepitaApi, args: string[]): Promise<void> {
+  const verb = args[0];
+  const rest = args.slice(1);
+  const site = flagValue(rest, '--site');
+  if (!site) throw new UsageError(IMAGE_USAGE + '\n(--site <slug> is required)');
+
+  if (verb === 'add') {
+    const [name, file] = positionals(rest, ['--site']);
+    if (!name || !file) throw new UsageError(IMAGE_USAGE);
+    console.log(await runImageAdd(client, site, name, file));
+    return;
+  }
+  if (verb === 'list') {
+    const name = positional(rest, ['--site']);
+    if (!name) throw new UsageError(IMAGE_USAGE);
+    console.log(await runImageList(client, site, name));
+    return;
+  }
+  if (verb === 'rm') {
+    const [name, imageName] = positionals(rest, ['--site']);
+    if (!name || !imageName) throw new UsageError(IMAGE_USAGE);
+    console.log(await runImageRm(client, site, name, imageName));
+    return;
+  }
+  throw new UsageError(IMAGE_USAGE);
+}
+
 async function confirm(question: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
@@ -272,6 +363,10 @@ export async function run(args: string[]): Promise<void> {
         return;
       }
       console.log(await runRm(client, a.site, a.name!));
+      return;
+    }
+    case 'image': {
+      await runImage(client, rest);
       return;
     }
     default:
