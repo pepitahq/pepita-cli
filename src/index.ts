@@ -14,6 +14,8 @@ Usage: pepita <command> [args]
   video <sub> --site <slug>   Video assets: add <file> | list | info <id> | rename <id> <name> | rm <id> | pull <id>
   email template <sub> --site <slug>   Confirmation-email templates: list | read <form-name> | put <form-name> | save <form-name> | rm <form-name> | image add|list|rm
   form <sub> --site <slug>   Form submissions: list | get <form-name> [--live] [--preview n] [--csv path] [--xlsx path] [--json path]
+  content <sub> --site <slug>   Content items: list | get <collection> | add <collection> | put <collection> | rm <collection>
+  content template <sub> --site <slug>   Content templates: list | read | put | save | rm
 `;
 
 const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<void> | void }>> = {
@@ -24,7 +26,8 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   site: () => import('./commands/site.js'),
   video: () => import('./commands/video.js'),
   email: () => import('./commands/email.js'),
-  form: () => import('./commands/form.js')
+  form: () => import('./commands/form.js'),
+  content: () => import('./commands/content.js')
 };
 
 async function main() {
