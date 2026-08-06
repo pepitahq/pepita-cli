@@ -22,8 +22,10 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
-import { CONTENT_MAX_RECORDS, type PepitaApi } from '@pepitahq/shared';
-import { api, UsageError } from '../api.js';
+import { CONTENT_MAX_RECORDS } from '@pepitahq/shared';
+// `PepitaApi` comes from ../api.js like the neighbouring commands do, not from
+// the shared package directly — same type, one import style on this surface.
+import { api, UsageError, type PepitaApi } from '../api.js';
 import { flagValue, positional } from './video.js';
 import { run as runContentTemplate } from './content-template.js';
 

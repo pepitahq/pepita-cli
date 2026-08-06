@@ -15,8 +15,9 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline/promises';
-import type { PepitaApi } from '@pepitahq/shared';
-import { api, UsageError } from '../api.js';
+// `PepitaApi` comes from ../api.js like the neighbouring commands do, not from
+// the shared package directly — same type, one import style on this surface.
+import { api, UsageError, type PepitaApi } from '../api.js';
 import { flagValue, positional } from './video.js';
 
 const USAGE = `usage:
@@ -97,15 +98,25 @@ export async function runRead(client: PepitaApi, site: string, name: string): Pr
   return client.readContentTemplateSource(site, hit.id);
 }
 
+/**
+ * Create or update a template's body, and — when `save` is set — promote it.
+ *
+ * `save` is handled HERE rather than by the caller, because only this function
+ * knows which branch it took and a create needs no promotion: that path writes
+ * the SOURCE, so it is already saved. The first version let `run` decide by
+ * matching `out.includes('working copy')` against this function's own prose,
+ * which was correct and would have broken silently the first time anyone reworded
+ * a sentence.
+ */
 export async function runPut(
   client: PepitaApi,
-  a: { site: string; name: string; html: string }
+  a: { site: string; name: string; html: string; save?: boolean }
 ): Promise<string> {
   const { hit } = await byName(client, a.site, a.name);
   if (!hit) {
-    // Created AND saved: this path writes the SOURCE, so there is no pending
-    // working copy and nothing left to promote.
     const res = await client.createContentTemplate(a.site, a.name, a.html);
+    // No mention of saving even under --save: telling someone to save what is
+    // already saved is worse than saying nothing.
     return (
       `Created and saved the "${a.name}" content template (sha ${res.sha}).\n` +
       `Place it in a page with <pepita-content mode="list" name="${a.name}"></pepita-content>, ` +
@@ -113,6 +124,14 @@ export async function runPut(
     );
   }
   await client.writeContentTemplate(a.site, hit.id, a.html);
+  if (a.save) {
+    const res = await client.saveContentTemplate(a.site, hit.id);
+    // `saved: false` here means the new body was byte-identical to the saved one,
+    // so the write left nothing pending — an outcome, not a failure.
+    return res.saved
+      ? `Updated and saved the "${a.name}" content template — your pages render it now.`
+      : `The "${a.name}" content template already matched what your pages render — nothing to save.`;
+  }
   return (
     `Updated the "${a.name}" content template's working copy.\n` +
     `Your pages still render the previous version — run \`pepita content template save ${a.name} --site ${a.site}\` to change that.`
@@ -172,12 +191,7 @@ export async function run(args: string[]): Promise<void> {
       const a = parseContentTemplateArgs(rest);
       if (!a.file) throw new UsageError(`${USAGE}\n(--file <file.html> is required for put)`);
       const html = await readFile(a.file, 'utf8');
-      const out = await runPut(client, { site: a.site, name: a.name!, html });
-      console.log(out);
-      // A create already saved; only an update leaves something to promote, and
-      // its own message ends by naming the save — so following through here and
-      // printing both would say it twice.
-      if (a.save && out.includes('working copy')) console.log(await runSave(client, a.site, a.name!));
+      console.log(await runPut(client, { site: a.site, name: a.name!, html, save: a.save }));
       return;
     }
     case 'save': {

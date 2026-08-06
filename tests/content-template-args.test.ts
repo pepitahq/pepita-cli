@@ -91,6 +91,50 @@ describe('runPut', () => {
     expect(out).not.toMatch(/content template save/);
   });
 
+  it('does not promote after a create even under --save — nothing is pending', async () => {
+    const calls: string[] = [];
+    const api = fakeApi({
+      listContentTemplates: async () => [],
+      createContentTemplate: async () => {
+        calls.push('create');
+        return { id: 'i9', sha: 's9' };
+      }
+      // saveContentTemplate is deliberately NOT provided: calling it would throw.
+    });
+    const out = await runPut(api, { site: 'acme', name: 'blog', html: '<article/>', save: true });
+    expect(calls).toEqual(['create']);
+    expect(out).toMatch(/created and saved/i);
+  });
+
+  it('promotes after an update when --save is set, in one message', async () => {
+    const calls: string[] = [];
+    const api = fakeApi({
+      listContentTemplates: async () => [meta('blog')],
+      writeContentTemplate: async () => {
+        calls.push('write');
+      },
+      saveContentTemplate: async () => {
+        calls.push('save');
+        return { saved: true, sha: 's2' };
+      }
+    });
+    const out = await runPut(api, { site: 'acme', name: 'blog', html: '<article/>', save: true });
+    expect(calls).toEqual(['write', 'save']);
+    expect(out).toMatch(/render it now/i);
+    // One message, not the update's "run save" line followed by the save's own.
+    expect(out).not.toMatch(/pepita content template save/);
+  });
+
+  it('reports a --save that found nothing pending as an outcome', async () => {
+    const api = fakeApi({
+      listContentTemplates: async () => [meta('blog')],
+      writeContentTemplate: async () => undefined,
+      saveContentTemplate: async () => ({ saved: false })
+    });
+    const out = await runPut(api, { site: 'acme', name: 'blog', html: '<article/>', save: true });
+    expect(out).toMatch(/nothing to save/i);
+  });
+
   it('writes only the working copy for an existing collection, and says so', async () => {
     const calls: string[] = [];
     const api = fakeApi({
