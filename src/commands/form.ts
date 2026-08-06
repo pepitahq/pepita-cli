@@ -18,7 +18,7 @@ import {
 // `PepitaApi` comes from ../api.js like the neighbouring commands do, not from
 // the shared package directly — same type, one import style on this surface.
 import { api, UsageError, type PepitaApi } from '../api.js';
-import { flagValue, positional } from './asset.js';
+import { flagValue, positional } from './video.js';
 
 const USAGE = `usage:
   pepita form list --site <slug>

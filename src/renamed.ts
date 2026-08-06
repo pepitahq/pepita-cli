@@ -37,7 +37,8 @@ export const RENAMED: Record<string, Renamed> = {
   preview: { phrase: 'site preview', cmd: 'site', prepend: ['preview'] },
   previews: { phrase: 'site previews', cmd: 'site', prepend: ['previews'] },
   publish: { phrase: 'site publish', cmd: 'site', prepend: ['publish'] },
-  delete: { phrase: 'site delete', cmd: 'site', prepend: ['delete'] }
+  delete: { phrase: 'site delete', cmd: 'site', prepend: ['delete'] },
+  asset: { phrase: 'video', cmd: 'video', prepend: [] }
 };
 
 /** One line, on stderr, naming the new spelling. Stderr so a piped stdout stays

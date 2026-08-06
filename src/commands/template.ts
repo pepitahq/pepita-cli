@@ -31,7 +31,7 @@ import { basename } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { templateImageUrl, siteLiveHost } from '@pepitahq/shared';
 import { api, PepitaHttpError, UsageError, type PepitaApi } from '../api.js';
-import { flagValue, positional, positionals, formatBytes } from './asset.js';
+import { flagValue, positional, positionals, formatBytes } from './video.js';
 
 const USAGE = `usage:
   pepita template list --site <slug>

@@ -1,5 +1,9 @@
 /**
- * pepita asset <sub> — the VIDEO asset surface.
+ * pepita video <sub> — the video asset surface.
+ *
+ * Named `video` and not `asset` because that is all it has ever reached: the
+ * `assets` table also holds email templates and content templates, and this
+ * command can touch neither — both are addressed by NAME, not by asset id.
  *
  * Video does NOT live in the site's file tree (the worktree budget is 20 MB
  * total / 5 MB per file, and the tree refuses videos by magic bytes). It lives
@@ -8,12 +12,12 @@
  * file can be handed over, since the bytes go straight to storage with presigned
  * URLs and never through an API worker (or a tool-call payload).
  *
- *   pepita asset add <file> --site <slug>
- *   pepita asset list --site <slug>
- *   pepita asset info <id> --site <slug>
- *   pepita asset rename <id> <new name> --site <slug>
- *   pepita asset rm <id> --site <slug> [--yes]
- *   pepita asset pull <id> --site <slug> [--out <path>]
+ *   pepita video add <file> --site <slug>
+ *   pepita video list --site <slug>
+ *   pepita video info <id> --site <slug>
+ *   pepita video rename <id> <new name> --site <slug>
+ *   pepita video rm <id> --site <slug> [--yes]
+ *   pepita video pull <id> --site <slug> [--out <path>]
  *
  * V1 is operator-gated server-side: every route 403s for everyone else (and the
  * list route answers `{enabled:false}`). We surface that as one plain sentence.
@@ -29,12 +33,12 @@ import { sniffVideoMime, VIDEO_SNIFF_BYTES, type VideoAsset } from '@pepitahq/sh
 import { api, PepitaHttpError, UsageError } from '../api.js';
 
 const USAGE = `usage:
-  pepita asset add <file> --site <slug>
-  pepita asset list --site <slug>
-  pepita asset info <id> --site <slug>
-  pepita asset rename <id> <new name> --site <slug>
-  pepita asset rm <id> --site <slug> [--yes]
-  pepita asset pull <id> --site <slug> [--out <path>]`;
+  pepita video add <file> --site <slug>
+  pepita video list --site <slug>
+  pepita video info <id> --site <slug>
+  pepita video rename <id> <new name> --site <slug>
+  pepita video rm <id> --site <slug> [--yes]
+  pepita video pull <id> --site <slug> [--out <path>]`;
 
 /** The public asset shape the routes return is the canonical `VideoAsset` from
  *  @pepitahq/shared (pepita-api.ts) — re-exported here for the existing import
@@ -72,7 +76,7 @@ export function positional(args: string[], flags: string[]): string | undefined 
 
 /** ALL positionals, in order. Lets `rename` take a multi-word name without
  *  quoting: everything after the id (that isn't a flag or its value) is the
- *  name — `pepita asset rename <id> Hero video final --site x`. */
+ *  name — `pepita video rename <id> Hero video final --site x`. */
 export function positionals(args: string[], flags: string[]): string[] {
   const consumed = new Set<number>();
   for (const f of flags) {
@@ -156,14 +160,14 @@ async function findAsset(slug: string, id: string): Promise<VideoAsset> {
   // There is no per-asset GET route (the row is small and the list is the panel's
   // data source) — so `info` reads the list and picks its row.
   const found = (await listAssets(slug)).find((a) => a.id === id);
-  if (!found) throw new UsageError(`No asset "${id}" on ${slug}. Run \`pepita asset list --site ${slug}\`.`);
+  if (!found) throw new UsageError(`No video "${id}" on ${slug}. Run \`pepita video list --site ${slug}\`.`);
   return found;
 }
 
 async function cmdAdd(args: string[]): Promise<void> {
   const file = positional(args, ['--site']);
   const slug = flagValue(args, '--site');
-  if (!file || !slug) throw new UsageError('usage: pepita asset add <file> --site <slug>');
+  if (!file || !slug) throw new UsageError('usage: pepita video add <file> --site <slug>');
 
   const path = resolve(file);
   const info = await stat(path).catch(() => null);
@@ -228,13 +232,13 @@ async function cmdAdd(args: string[]): Promise<void> {
 
   console.log(
     `Uploaded — processing.\n  id: ${assetId}\n` +
-      `Run \`pepita asset info ${assetId} --site ${slug}\` in a minute for the playable URL.`
+      `Run \`pepita video info ${assetId} --site ${slug}\` in a minute for the playable URL.`
   );
 }
 
 async function cmdList(args: string[]): Promise<void> {
   const slug = flagValue(args, '--site');
-  if (!slug) throw new UsageError('usage: pepita asset list --site <slug>');
+  if (!slug) throw new UsageError('usage: pepita video list --site <slug>');
   const rows = await listAssets(slug);
   if (rows.length === 0) return console.log('No video assets yet.');
   console.log(
@@ -254,7 +258,7 @@ async function cmdList(args: string[]): Promise<void> {
 async function cmdInfo(args: string[]): Promise<void> {
   const id = positional(args, ['--site']);
   const slug = flagValue(args, '--site');
-  if (!id || !slug) throw new UsageError('usage: pepita asset info <id> --site <slug>');
+  if (!id || !slug) throw new UsageError('usage: pepita video info <id> --site <slug>');
   const a = await findAsset(slug, id);
   const dims = a.width && a.height ? `${a.width}×${a.height}` : '—';
   console.log(
@@ -280,7 +284,7 @@ async function cmdRename(args: string[]): Promise<void> {
   const [id, ...nameParts] = positionals(args, ['--site']);
   const name = nameParts.join(' ').trim();
   if (!id || !slug || !name)
-    throw new UsageError('usage: pepita asset rename <id> <new name> --site <slug>');
+    throw new UsageError('usage: pepita video rename <id> <new name> --site <slug>');
 
   // Fail early on a wrong id (and pick up the old name for the confirmation).
   const a = await findAsset(slug, id);
@@ -299,7 +303,7 @@ async function cmdRename(args: string[]): Promise<void> {
 async function cmdRm(args: string[]): Promise<void> {
   const id = positional(args, ['--site']);
   const slug = flagValue(args, '--site');
-  if (!id || !slug) throw new UsageError('usage: pepita asset rm <id> --site <slug> [--yes]');
+  if (!id || !slug) throw new UsageError('usage: pepita video rm <id> --site <slug> [--yes]');
 
   // Confirm against the real row (and fail early on a wrong id) — the same shape
   // as `pepita delete`: verify it exists, THEN ask.
@@ -321,7 +325,7 @@ async function cmdRm(args: string[]): Promise<void> {
 async function cmdPull(args: string[]): Promise<void> {
   const id = positional(args, ['--site', '--out']);
   const slug = flagValue(args, '--site');
-  if (!id || !slug) throw new UsageError('usage: pepita asset pull <id> --site <slug> [--out <path>]');
+  if (!id || !slug) throw new UsageError('usage: pepita video pull <id> --site <slug> [--out <path>]');
 
   const a = await findAsset(slug, id);
   const out = resolve(flagValue(args, '--out') ?? a.originalFilename ?? `${id}.mp4`);

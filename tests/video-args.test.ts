@@ -7,7 +7,7 @@ import {
   formatDuration,
   formatTimestamp,
   renderTable
-} from '../src/commands/asset.js';
+} from '../src/commands/video.js';
 
 describe('asset arg parsing', () => {
   it('reads a flag value, ignoring a missing or flag-shaped one', () => {
@@ -25,7 +25,7 @@ describe('asset arg parsing', () => {
   });
 
   it('collects ALL positionals in order (rename takes a multi-word name unquoted)', () => {
-    // `pepita asset rename <id> Hero video final --site docs`
+    // `pepita video rename <id> Hero video final --site docs`
     expect(positionals(['abc', 'Hero', 'video', 'final', '--site', 'docs'], ['--site'])).toEqual([
       'abc',
       'Hero',

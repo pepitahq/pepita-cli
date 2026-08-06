@@ -153,7 +153,7 @@ export function formatVideoIngestError(videos: Array<{ path: string; mime: strin
     `it has a 5 MB per-file budget). Found:`,
     ...videos.map((v) => `  ${v.path} — ${v.mime}`),
     'Nothing was applied.',
-    'Move these out of the folder and upload them with `pepita asset add <file> --site <slug>`,',
+    'Move these out of the folder and upload them with `pepita video add <file> --site <slug>`,',
     'then reference the URLs it prints from your markup.'
   ].join('\n');
 }

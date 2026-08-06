@@ -65,7 +65,7 @@ describe('walkLocal video ingest gate', () => {
       expect(msg).toContain('clips/intro.mp4');
       expect(msg).toContain('video/mp4');
       expect(msg).toContain('Nothing was applied.');
-      expect(msg).toContain('pepita asset add');
+      expect(msg).toContain('pepita video add');
     }
   });
 
