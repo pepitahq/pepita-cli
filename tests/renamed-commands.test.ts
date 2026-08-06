@@ -16,10 +16,17 @@ describe('RENAMED', () => {
     expect(RENAMED.asset).toEqual({ phrase: 'video', cmd: 'video', prepend: [] });
   });
 
+  it('forwards `template` to `email template`, prepending the sub-noun', () => {
+    expect(RENAMED.template).toEqual({ phrase: 'email template', cmd: 'email', prepend: ['template'] });
+  });
+
   it('names the new spelling in the notice, and nothing else', () => {
     expect(renameNotice('list', 'site list')).toBe(
       'pepita: `list` is now `site list` — use `pepita site list`.'
     );
     expect(renameNotice('asset', 'video')).toBe('pepita: `asset` is now `video` — use `pepita video`.');
+    expect(renameNotice('template', 'email template')).toBe(
+      'pepita: `template` is now `email template` — use `pepita email template`.'
+    );
   });
 });

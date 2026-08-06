@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PepitaHttpError } from '../src/api.js';
-import { parseTemplateArgs, runPut, runRead } from '../src/commands/template.js';
+import { parseTemplateArgs, runPut, runRead } from '../src/commands/email.js';
 
 const T = { id: 'a1', name: 'contact', sha: 'sha-1', subject: 'S', from: 'info', fromName: 'Acme', toField: 'email' };
 

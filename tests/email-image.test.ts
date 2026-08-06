@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runImageAdd, runImageList, runImageRm } from '../src/commands/template.js';
+import { runImageAdd, runImageList, runImageRm } from '../src/commands/email.js';
 
 const T = { id: 'a1', name: 'contact', sha: 'sha-1', subject: 'S', from: 'info', fromName: 'Acme', toField: 'email' };
 

@@ -1,5 +1,5 @@
 /**
- * pepita template <sub> — confirmation-email templates, one per form.
+ * pepita email template <sub> — confirmation-email templates, one per form.
  *
  * Templates live OUTSIDE the site's file tree (they are never published as
  * pages); a template is matched to a form by NAME — the form's `_form` value.
@@ -17,14 +17,14 @@
  * download — any host serving the site answers it, regardless of custom
  * domains.
  *
- *   pepita template list --site <slug>
- *   pepita template read <form-name> --site <slug> [--out body.html]
- *   pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
- *   pepita template save <form-name> --site <slug>
- *   pepita template rm   <form-name> --site <slug> [--yes]
- *   pepita template image add  <form-name> <file> --site <slug>
- *   pepita template image list <form-name> --site <slug>
- *   pepita template image rm   <form-name> <image-name> --site <slug>
+ *   pepita email template list --site <slug>
+ *   pepita email template read <form-name> --site <slug> [--out body.html]
+ *   pepita email template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
+ *   pepita email template save <form-name> --site <slug>
+ *   pepita email template rm   <form-name> --site <slug> [--yes]
+ *   pepita email template image add  <form-name> <file> --site <slug>
+ *   pepita email template image list <form-name> --site <slug>
+ *   pepita email template image rm   <form-name> <image-name> --site <slug>
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
@@ -34,21 +34,21 @@ import { api, PepitaHttpError, UsageError, type PepitaApi } from '../api.js';
 import { flagValue, positional, positionals, formatBytes } from './video.js';
 
 const USAGE = `usage:
-  pepita template list --site <slug>
-  pepita template read <form-name> --site <slug> [--out body.html]
-  pepita template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
-  pepita template save <form-name> --site <slug>
-  pepita template rm   <form-name> --site <slug> [--yes]
-  pepita template image add  <form-name> <file> --site <slug>
-  pepita template image list <form-name> --site <slug>
-  pepita template image rm   <form-name> <image-name> --site <slug>
+  pepita email template list --site <slug>
+  pepita email template read <form-name> --site <slug> [--out body.html]
+  pepita email template put  <form-name> --site <slug> [--file body.html] [--subject s] [--from local] [--from-name name] [--save]
+  pepita email template save <form-name> --site <slug>
+  pepita email template rm   <form-name> --site <slug> [--yes]
+  pepita email template image add  <form-name> <file> --site <slug>
+  pepita email template image list <form-name> --site <slug>
+  pepita email template image rm   <form-name> <image-name> --site <slug>
 
 put writes the working copy; save makes it the version people receive.`;
 
 const IMAGE_USAGE = `usage:
-  pepita template image add  <form-name> <file> --site <slug>
-  pepita template image list <form-name> --site <slug>
-  pepita template image rm   <form-name> <image-name> --site <slug>`;
+  pepita email template image add  <form-name> <file> --site <slug>
+  pepita email template image list <form-name> --site <slug>
+  pepita email template image rm   <form-name> <image-name> --site <slug>`;
 
 export interface TemplateArgs {
   site: string;
@@ -109,7 +109,7 @@ const noTemplate = (name: string, all: Array<{ name: string }>): Error =>
 
 export async function runList(client: PepitaApi, site: string): Promise<string> {
   const all = await client.listTemplates(site);
-  if (!all.length) return 'No confirmation-email templates yet. `pepita template put <form-name>` creates one.';
+  if (!all.length) return 'No confirmation-email templates yet. `pepita email template put <form-name>` creates one.';
   return all
     .map((t) => `${t.name}  subject: "${t.subject}"  from: "${t.fromName}" <${t.from}@…>  sha: ${t.sha}`)
     .join('\n');
@@ -213,7 +213,7 @@ export async function runPut(client: PepitaApi, input: PutInput): Promise<string
   return [
     `Updated the "${input.name}" template's working copy.`,
     'It does not change the emails people receive yet —',
-    `run \`pepita template save ${input.name} --site ${input.site}\` (or use --save) to make it the version in use.`
+    `run \`pepita email template save ${input.name} --site ${input.site}\` (or use --save) to make it the version in use.`
   ].join(' ');
 }
 
@@ -318,7 +318,26 @@ async function confirm(question: string): Promise<boolean> {
   }
 }
 
+/**
+ * pepita email <sub> — everything about a site's confirmation emails.
+ *
+ * `template` is the only sub-noun today, and the level exists because a flat
+ * `pepita template` could not say WHICH kind of template it meant once content
+ * templates arrived. It also leaves room the flat name did not: the API
+ * restructure kept space for a `data/email` (the send log), so `pepita email log`
+ * has somewhere to land.
+ */
 export async function run(args: string[]): Promise<void> {
+  if (args[0] !== 'template') {
+    throw new UsageError(
+      'usage: pepita email template <sub> --site <slug>\n' +
+        '(the only sub-noun is `template` — run `pepita email template` for its verbs)'
+    );
+  }
+  return runTemplate(args.slice(1));
+}
+
+async function runTemplate(args: string[]): Promise<void> {
   const sub = args[0];
   const rest = args.slice(1);
   const client = api();

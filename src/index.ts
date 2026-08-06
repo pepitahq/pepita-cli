@@ -12,7 +12,7 @@ Usage: pepita <command> [args]
   status                      Your balance + every site's URL
   site <sub>                  Sites: list | create | pull | apply | preview | previews | publish | delete | status <slug>
   video <sub> --site <slug>   Video assets: add <file> | list | info <id> | rename <id> <name> | rm <id> | pull <id>
-  template <sub> --site <slug>   Confirmation-email templates: list | read <form-name> | put <form-name> | save <form-name> | rm <form-name> | image add|list|rm
+  email template <sub> --site <slug>   Confirmation-email templates: list | read <form-name> | put <form-name> | save <form-name> | rm <form-name> | image add|list|rm
   form <sub> --site <slug>   Form submissions: list | get <form-name> [--live] [--preview n] [--csv path] [--xlsx path] [--json path]
 `;
 
@@ -23,7 +23,7 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   status: () => import('./commands/status.js'),
   site: () => import('./commands/site.js'),
   video: () => import('./commands/video.js'),
-  template: () => import('./commands/template.js'),
+  email: () => import('./commands/email.js'),
   form: () => import('./commands/form.js')
 };
 
