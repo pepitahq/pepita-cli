@@ -1,4 +1,5 @@
 import { AuthError, UsageError, PepitaHttpError, authErrorMessage, lastUpgradeAdvised } from './api.js';
+import { RENAMED, renameNotice } from './renamed.js';
 import { VERSION } from './version.js';
 
 const HELP = `pepita — command line for pepita sites
@@ -8,15 +9,8 @@ Usage: pepita <command> [args]
   login                       Authorize this device in the browser
   logout                      Remove the local token
   whoami                      Show the logged-in account
-  list                        List your sites
-  create <name> [--allow-embedding] [--block-ai-crawlers] [--from d]   Create a new site (optionally from a local dir)
-  pull <slug> [--live] [--preview <name>] [--dir d]         Download files (default: the working copy)
-  apply <slug> [--dir d] [--yes]       Upload local files into the site's working copy
-  preview <slug> [--update <name>] [--delete <name>]   Create, update, or remove a shareable preview link
-  previews <slug>             List active preview links
-  publish <slug>              Put the current site live
-  delete <slug> [--download-snapshot] [--yes]   Permanently delete a site (optionally snapshot to /tmp first)
-  status [slug]               Balance + your sites; with a slug, its pending changes
+  status                      Your balance + every site's URL
+  site <sub>                  Sites: list | create | pull | apply | preview | previews | publish | delete | status <slug>
   asset <sub> --site <slug>   Video assets: add <file> | list | info <id> | rename <id> <name> | rm <id> | pull <id>
   template <sub> --site <slug>   Confirmation-email templates: list | read <form-name> | put <form-name> | save <form-name> | rm <form-name> | image add|list|rm
   form <sub> --site <slug>   Form submissions: list | get <form-name> [--live] [--preview n] [--csv path] [--xlsx path] [--json path]
@@ -26,15 +20,8 @@ const commands: Record<string, () => Promise<{ run: (args: string[]) => Promise<
   login: () => import('./commands/login.js'),
   logout: () => import('./commands/logout.js'),
   whoami: () => import('./commands/whoami.js'),
-  list: () => import('./commands/list.js'),
-  create: () => import('./commands/create.js'),
-  pull: () => import('./commands/pull.js'),
-  apply: () => import('./commands/apply.js'),
-  preview: () => import('./commands/preview.js'),
-  previews: () => import('./commands/previews.js'),
-  publish: () => import('./commands/publish.js'),
-  delete: () => import('./commands/delete.js'),
   status: () => import('./commands/status.js'),
+  site: () => import('./commands/site.js'),
   asset: () => import('./commands/asset.js'),
   template: () => import('./commands/template.js'),
   form: () => import('./commands/form.js')
@@ -46,7 +33,15 @@ async function main() {
     console.log(HELP);
     return;
   }
-  const loader = commands[cmd];
+  // A renamed word: say so once, then run the new home with the same arguments.
+  // Before dispatch, not after — a command that throws must not swallow the one
+  // line that explains why the user should stop typing this spelling.
+  const renamed = RENAMED[cmd];
+  const word = renamed ? renamed.cmd : cmd;
+  const argv = renamed ? [...renamed.prepend, ...args] : args;
+  if (renamed) console.error(renameNotice(cmd, renamed.phrase));
+
+  const loader = commands[word];
   if (!loader) {
     console.error(`Unknown command: ${cmd}\n`);
     console.log(HELP);
@@ -54,7 +49,7 @@ async function main() {
     return;
   }
   const mod = await loader();
-  await mod.run(args);
+  await mod.run(argv);
   noticeUpgrade();
 }
 
