@@ -11,7 +11,9 @@
  *   pepita content get <collection> --site <slug> [--oldest] [--limit <n>] [--json <path>]
  *   pepita content add <collection> --file <items.json> --site <slug>
  *   pepita content put <collection> --file <item.json> --site <slug> (--id <id> | --content-slug <slug>)
- *   pepita content rm  <collection> --site <slug> (--id <id> | --content-slug <slug>) [--yes]
+ *   pepita content publish <collection> --site <slug> (--id <id> | --content-slug <slug>)
+  pepita content unpublish <collection> --site <slug> (--id <id> | --content-slug <slug>)
+  pepita content rm  <collection> --site <slug> (--id <id> | --content-slug <slug>) [--yes]
  *   pepita content template <sub> --site <slug>
  *
  * TWO ADDRESSES, and they are not equivalent. `--id` is a UUID that never
@@ -34,6 +36,8 @@ const USAGE = `usage:
   pepita content get <collection> --site <slug> [--oldest] [--limit <n>] [--json <path>]
   pepita content add <collection> --file <items.json> --site <slug>
   pepita content put <collection> --file <item.json> --site <slug> (--id <id> | --content-slug <slug>)
+  pepita content publish <collection> --site <slug> (--id <id> | --content-slug <slug>)
+  pepita content unpublish <collection> --site <slug> (--id <id> | --content-slug <slug>)
   pepita content rm  <collection> --site <slug> (--id <id> | --content-slug <slug>) [--yes]
 
   pepita content template <sub> --site <slug>   the collection's SHAPE
@@ -268,6 +272,21 @@ export async function run(args: string[]): Promise<void> {
       if (!a.file) throw new UsageError(`${USAGE}\n(--file <item.json> is required for put)`);
       const id = await resolveRecordId(client, a.site, a.name!, a);
       console.log(await runPut(client, a.site, a.name!, id, await readFile(a.file, 'utf8')));
+      return;
+    }
+    case 'publish':
+    case 'unpublish': {
+      // One case for both: they differ by a boolean, and splitting them would be
+      // two places for the address resolution and the wording to drift.
+      const live = sub === 'publish';
+      const a = parseContentArgs(rest);
+      const id = await resolveRecordId(client, a.site, a.name!, a);
+      await client.setContentRecordLive(a.site, a.name!, id, live);
+      console.log(
+        live
+          ? `Published ${id} in "${a.name}". It is on your live site now, wherever the collection is placed.`
+          : `Unpublished ${id} in "${a.name}". It is off your live site and still here as a draft — nothing was deleted.`
+      );
       return;
     }
     case 'rm': {
