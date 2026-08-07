@@ -191,7 +191,8 @@ export async function runAdd(
   const created = await client.addContentRecords(site, name, parsed);
   const lines = created.map((r) => `${r.slug}  ${r.id}`);
   return [
-    `Added ${created.length} item${created.length === 1 ? '' : 's'} to "${name}".`,
+    `Added ${created.length} item${created.length === 1 ? '' : 's'} to "${name}" as ` +
+      `draft${created.length === 1 ? '' : 's'} — publish with \`pepita content publish\`.`,
     '',
     ...lines
   ].join('\n');
