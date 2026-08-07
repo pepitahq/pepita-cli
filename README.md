@@ -85,8 +85,9 @@ a new name and point the template at it.
 A collection is repeating structured content — a blog, a menu, a team page. It has
 two halves and the CLI addresses them separately: `content template` is the HTML
 for ONE item, with `{{placeholder}}` fields, and `content` is the items filling it.
-Neither lives in the site's file tree. An item is live the moment it is written —
-content has no publish step.
+Neither lives in the site's file tree. A new item is a **draft**: it shows in the
+editor and on preview links, and reaches the live site only when you publish it
+with `pepita content publish`. `pepita content unpublish` puts it back.
 
 **Two addresses, and they are not equivalent.** `--id` is the item's permanent
 address: it never changes. `--content-slug` is derived from the item's title, so

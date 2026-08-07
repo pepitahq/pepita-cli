@@ -214,7 +214,7 @@ export async function runPut(
     throw new Error('A put file holds ONE item as a JSON object — `{ "title": "…" }`.');
   }
   await client.putContentRecord(site, name, id, parsed);
-  return `Replaced item ${id} in "${name}". It is live on your site now — content has no publish step.`;
+  return `Replaced item ${id} in "${name}". Its published state is unchanged — editing never publishes or unpublishes an item.`;
 }
 
 export async function runRm(
