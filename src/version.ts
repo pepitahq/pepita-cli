@@ -10,7 +10,7 @@
  * published binary older than the API gets told to upgrade. Bump it with
  * package.json, in the same commit.
  */
-export const VERSION = '0.18.0';
+export const VERSION = '0.19.0';
 
 /** What we send as `X-Pepita-Client`. */
 export const CLIENT_ID = `cli/${VERSION}`;
