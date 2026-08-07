@@ -148,6 +148,11 @@ export async function runGet(
       records.map((r) => ({
         id: r.id,
         slug: r.slug,
+        // Published, as opposed to a draft. Carried here because a script that
+        // publishes has to be able to ask what is not published yet — and
+        // because `content publish` takes an id, so without this the only way to
+        // pick one is to guess.
+        live: r.live,
         createdAtMs: r.createdAtMs,
         updatedAtMs: r.updatedAtMs,
         fields: r.data
@@ -163,7 +168,10 @@ export async function runGet(
       .filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
       .join('  ');
-    return `${r.slug ?? '(no address)'}  ${r.id}  ${fields}`;
+    // The state LEADS the line: "what have I not published yet" is the question
+    // this listing is most often opened to answer, and `content publish` needs an
+    // id from it. Fixed width so the addresses stay in a column.
+    return `${r.live ? 'LIVE ' : 'DRAFT'}  ${r.slug ?? '(no address)'}  ${r.id}  ${fields}`;
   });
   return [head, '', ...lines].join('\n');
 }
